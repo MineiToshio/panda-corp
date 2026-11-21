@@ -706,8 +706,8 @@ queue_event rebase result str ok base str "$QUEUE_REBASE_BASE" head str "$QUEUE_
 
 [ -x .pandacorp/verify.sh ] || fail "no gate: .pandacorp/verify.sh is missing or not executable" 20
 
-# Prepare only dependencies/generated types. Full bootstrap rewrites tracked ports and
-# skip-worktree bits, which would invalidate both the committed gate inputs and its stamp.
+# Prepare dependencies/generated types and the private port before fingerprinting. Full
+# bootstrap also materializes dotenv/hooks/receipts, so it is not the pre-gate preparation step.
 environment_not_ready() {
   queue_event env_step result str failed reason str "$1" duration_s json "$((SECONDS - QUEUE_ENV_STARTED))"
   fail "environment not ready: $1" 16
@@ -770,6 +770,11 @@ if [ -x node_modules/.bin/next ] && [ ! -d .next/types ]; then
   fi
   node_modules/.bin/next typegen || environment_not_ready "next typegen failed"
 fi
+# Legacy bootstraps have no private port file. Materialize that binding input before the
+# start fingerprint; exit-21 cleanup must never introduce a new input after a green gate.
+if [ -f e2e/server-env.json ] && [ -x .pandacorp/worktree-bootstrap.sh ]; then
+  bash .pandacorp/worktree-bootstrap.sh --e2e-port-only || environment_not_ready "cannot prepare private e2e port"
+fi
 export PANDACORP_STAMP_BASE="$QUEUE_STAMP_BASE"
 queue_event env_step result str ok duration_s json "$((SECONDS - QUEUE_ENV_STARTED))"
 # Pin before invoking any gate; concurrent commits by branch name cannot ride along.
@@ -785,6 +790,7 @@ if [ -f "e2e/server-env.json" ]; then
   git diff --quiet HEAD -- e2e/server-env.json ||
     fail "integration gate RED on the rebased result — e2e/server-env.json differs from HEAD" 11
   command -v jq >/dev/null 2>&1 || environment_not_ready "jq is required to read the committed e2e PORT"
+  export PANDACORP_E2E_COMMITTED_PORT=1
   COMMITTED_PORT="$(jq -r '.PORT|tostring' e2e/server-env.json)"
 fi
 # DR-146 certified tree: verify.sh is a function of the tree it judges, so when the rebased result is

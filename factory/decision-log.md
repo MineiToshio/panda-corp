@@ -1,5 +1,43 @@
 # Decision Log — Factory
 
+## 2026-11-21 - Reject invalid Git-directory provenance before bootstrap renewal
+
+[Build orchestration](standards/build-orchestration.md) now makes the complete manifest trust
+boundary explicit, including the real Git directory. Both bootstrap ownership and retention
+checks align with cleanup; a rejected proof cannot become deletion authority through rebootstrap.
+The standalone overlay remains self-contained, without a new factory-module dependency.
+[Plugin history](../plugin/docs/decision-log.md) records the two-mode regression and narrow fix.
+
+## 2026-11-21 - Bind private-port cleanup to exact bootstrap provenance
+
+[Build orchestration](standards/build-orchestration.md) documents the narrow generated-port
+exception needed after integrating proposal 43 phases 1/2. The new ignored port is reclaimable only
+when external bootstrap identity and content hash still match; inventory and removal use the same
+predicate. Other protected state, missing proof and owner edits retain the worktree. Port-only
+preparation preserves valid sibling evidence without blessing changed/unproven ports.
+[Plugin history](../plugin/docs/decision-log.md) explains the deliberate legacy test updates and
+the unchanged required-record, hidden-edit and cleanup safety protections.
+
+## 2026-11-21 - Prepare legacy private ports before certification
+
+[Build orchestration](standards/build-orchestration.md) now requires the queue to materialize a
+legacy worktree's private port before its start fingerprint. Bootstrap's narrow port-only mode
+skips unrelated preparation, retains existing valid ports and leaves unchanged bytes/mtime alone.
+The port remains fingerprinted, preserving fail-closed handling of real input changes. Independent
+review's exit-21 regression is reproduced and covered through real queue/verify/stamp execution;
+[plugin history](../plugin/docs/decision-log.md) records the implementation and synthetic tests.
+
+## 2026-11-21 - Amend DR-158 for reviewed per-worker browser fixtures
+
+[DR-158](decisions/registry.yaml), [quality](standards/quality.md) and
+[build orchestration](standards/build-orchestration.md) now permit isolated fixture writers to run
+alongside read-only projects, each worker owning a fresh root/server from one build. Visual and
+canonical writers remain serial. Mission Control admits only proposal 43 wave 1; wave 2 waits for
+three green runs. Bootstrap private ports move to ignored state, lane precedence is restored and
+the queue explicitly retains committed-origin identity. [Manual](../mission-control/src/app/manual/manualPages.tsx)
+and [reviewed inventory](../mission-control/docs/reviews/e2e-platform-inventory.md) reflect the new
+operable surface; [plugin history](../plugin/docs/decision-log.md) records its machinery/tests.
+
 ## 2026-11-21 - Reconcile full-corpus fixtures with the phase-1 contract
 
 [Build orchestration](standards/build-orchestration.md) explicitly requires the stamp helper
@@ -776,6 +814,41 @@ session instead of depending on a later sweep's manual `git status` read — wha
 2026-10-07 session (a crash, a context cutoff, a manual Ctrl-C) left real, correct work sitting
 uncommitted for 3 days.
 
+## 2026-09-07 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
+
+**What:** Same two `Fase: release` projects per the portfolio, re-verified live rather than trusted from the
+2026-08-31 note (CONV-13). **Mission Control** — launchd service alive under a new PID (41498, was 20228 —
+service restarted at some point, not a concern on its own), HTTP 200 on `:1987`; last commit touching
+`mission-control/` is 2026-09-03, a normal 4-day gap. **Correction, same sweep:** `mission-control/.pandacorp/status.yaml`
+(the source of truth, rule 5) actually reads `phase: implementation`, not `release` — the portfolio row was
+stale. This is the SAME divergence a 2026-09-04 memory note already caught and left unresolved
+(`factory/memory/_inbox.md`); it's now corroborated a second time three days later, so `/pandacorp:sync-portfolio`
+is worth checking for why it isn't picking this up. Corrected `factory/portfolio.md`'s Fase column to
+`implementation` and marked the Veredicto column out of review-launch's scope (no market hypothesis applies
+either way — `return_type: personal` — but a project not actually in `release` shouldn't carry a
+release-phase verdict at all). Context for the owner: 106/106 work orders VERIFIED, `safe_to_test: true` —
+this reads as ready for a phase-advance confirmation, not as an abandoned or broken project.
+**PersonalPage v2** — re-fetched `toshiominei.com` live via browser: still the pre-rebuild site (jQuery-era
+project list — "GEOSERVICE", "SOUTHERN COPPER", "SCOTI CHATBOT"), `/en/projects` still 404s, no cutover
+commit in `git log`. Same operational blocker as 2026-07-28 and 2026-08-31, six weeks running now. **What
+did move:** the build itself — `status.yaml` recorded its first fully green gate since 2026-07-01 on
+2026-09-06 (713 unit + 150 e2e), an A5.1 truthfulness pass fixed six overstated claims in `/about` and the
+case studies, and `NEXT_PUBLIC_POSTHOG_KEY` is now populated in `.env.local` (was empty on 2026-08-31).
+Telemetry is still unreadable from this session regardless — the only PostHog org reachable stays "JobLeap
+AI" ([[posthog-mcp-scoped-to-jobleap.md]]). The project now looks code-complete-adjacent; the DNS/Vercel
+cutover is the one remaining step, and it's an external-production human gate, not something review-launch
+or the build engine can do on its own.
+
+**Why:** DR-043's post-launch loop, run unattended as the weekly scheduled routine. Measures and records
+only — never kills/archives (owner gate). Re-verifying live (not trusting the prior note) is what caught
+that the build had progressed even though the market-facing blocker hadn't moved — a nuance a stale read
+would have missed either direction (silently declaring "no change" or missing the progress).
+
+**Impact:** `factory/portfolio.md` rows for both projects refreshed (evidence + date; verdicts unchanged —
+Mission Control no aplica, PersonalPage v2 hold). `personal-page-v2/docs/decision-log.md` also got a
+matching entry (project-local canonical doc for this finding). No code, no deploy, no PostHog config
+touched.
+
 ## 2026-09-03 — BL-0111: Fable prompt-surface recalibration sprint merged (proposal 36)
 
 **What:** closes BL-0111 (R-02's recalibration half, proposal 33 §12.2). One pre-authorized Fable 5.1
@@ -1261,41 +1334,6 @@ the prior note's wording, which is what surfaced the Mission Control commit-cade
 **Impact:** `factory/portfolio.md` rows for both projects refreshed (evidence + date; verdicts unchanged).
 No code, no deploy, no PostHog config touched — those remain the owner's action.
 
-## 2026-09-07 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
-
-**What:** Same two `Fase: release` projects per the portfolio, re-verified live rather than trusted from the
-2026-08-31 note (CONV-13). **Mission Control** — launchd service alive under a new PID (41498, was 20228 —
-service restarted at some point, not a concern on its own), HTTP 200 on `:1987`; last commit touching
-`mission-control/` is 2026-09-03, a normal 4-day gap. **Correction, same sweep:** `mission-control/.pandacorp/status.yaml`
-(the source of truth, rule 5) actually reads `phase: implementation`, not `release` — the portfolio row was
-stale. This is the SAME divergence a 2026-09-04 memory note already caught and left unresolved
-(`factory/memory/_inbox.md`); it's now corroborated a second time three days later, so `/pandacorp:sync-portfolio`
-is worth checking for why it isn't picking this up. Corrected `factory/portfolio.md`'s Fase column to
-`implementation` and marked the Veredicto column out of review-launch's scope (no market hypothesis applies
-either way — `return_type: personal` — but a project not actually in `release` shouldn't carry a
-release-phase verdict at all). Context for the owner: 106/106 work orders VERIFIED, `safe_to_test: true` —
-this reads as ready for a phase-advance confirmation, not as an abandoned or broken project.
-**PersonalPage v2** — re-fetched `toshiominei.com` live via browser: still the pre-rebuild site (jQuery-era
-project list — "GEOSERVICE", "SOUTHERN COPPER", "SCOTI CHATBOT"), `/en/projects` still 404s, no cutover
-commit in `git log`. Same operational blocker as 2026-07-28 and 2026-08-31, six weeks running now. **What
-did move:** the build itself — `status.yaml` recorded its first fully green gate since 2026-07-01 on
-2026-09-06 (713 unit + 150 e2e), an A5.1 truthfulness pass fixed six overstated claims in `/about` and the
-case studies, and `NEXT_PUBLIC_POSTHOG_KEY` is now populated in `.env.local` (was empty on 2026-08-31).
-Telemetry is still unreadable from this session regardless — the only PostHog org reachable stays "JobLeap
-AI" ([[posthog-mcp-scoped-to-jobleap.md]]). The project now looks code-complete-adjacent; the DNS/Vercel
-cutover is the one remaining step, and it's an external-production human gate, not something review-launch
-or the build engine can do on its own.
-
-**Why:** DR-043's post-launch loop, run unattended as the weekly scheduled routine. Measures and records
-only — never kills/archives (owner gate). Re-verifying live (not trusting the prior note) is what caught
-that the build had progressed even though the market-facing blocker hadn't moved — a nuance a stale read
-would have missed either direction (silently declaring "no change" or missing the progress).
-
-**Impact:** `factory/portfolio.md` rows for both projects refreshed (evidence + date; verdicts unchanged —
-Mission Control no aplica, PersonalPage v2 hold). `personal-page-v2/docs/decision-log.md` also got a
-matching entry (project-local canonical doc for this finding). No code, no deploy, no PostHog config
-touched.
-
 ## 2026-08-03 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
 
 **What:** Scanned `factory/portfolio.md` for `Fase: release` projects (PandaCast stays `product`, out of
@@ -1407,6 +1445,12 @@ permits only `EXPERIMENTAL/attended_foreground/targeted-only`: one FRD or ready 
 Dynamic Workflow is unchanged. Plugin 9.95.11 carries the promotion.
 The propagated project instruction changes in overlay 8.76.5 so upgraded projects receive the same
 narrow permission boundary; DR-113 and PORT-5 remain the policy sources.
+
+## 2026-07-15 — PROMPT-8: runtime-synthesized dispatch prompts are self-contained on-camera briefs (LESSON-0147 promoted)
+
+**What:** `factory/standards/prompting-conventions.md` gains **PROMPT-8** (SHOULD, manual): the dispatch prompts that engines/skills synthesize at runtime for ephemeral subagents (the build engine's builder/reviewer/patch briefs) are a third governed prompt surface — they must be self-contained on-camera briefs (role+boundary first, owned files named, run/verify commands embedded, explicit output contract, the DR-108 context pack inlined verbatim), never pointer specs ("read the work order and do what it says"), because they render live on La Fragua and seed the retry/diagnosis loop, and an ephemeral worker is stateless. The engine's `woCtx()` injector is the reference implementation — this codifies existing practice (DR-108 predates it); no engine code changed. Owner-approved in conversation (HIGH-RISK gate satisfied); promoted from **LESSON-0147** (ringer external-repo mining, 2026-07-10 entry below), now `promotion: approved` + back-linked (DR-047 lineage).
+
+**Propagation (DR-116 sweep complete):** scope statement extended in the standard (its line 5 was the only place asserting the narrower two-surface scope); `rule-registry.md` row + counts (131→132, manual 99→100); `factory/standards/README.md` index row (also fixed the pre-existing omission of prompting-conventions.md from the index); DR-114 `default:` in `registry.yaml` extended to PROMPT-1..8 with clause (8); Mission Control Manual updated in the same change (DR-046): `estandares-y-reglas` `.md` + `manualPages.tsx` counts/range. Factory-internal standard — **no rule-library change, no OVERLAY bump** (explicit decision, not an omission). Severity SHOULD not MUST: no deterministic verifier ships (enforcement is edit-time self-check + reviewer of engine changes), and the registry holds at 0 aspirational MUSTs. Pre-existing `check-standards.sh` FAILs (document-consistency/single-source-of-truth registry rows) are BL-0055, untouched here.
 
 ## 2026-07-14 — Codex build candidate is attended, targeted and canary-gated
 
@@ -1711,12 +1755,6 @@ carriers. Plugin implementation/evidence is recorded in `plugin/docs/decision-lo
 **Why:** the prior PORT-5 language inferred too much from durable file state. A live Dynamic Workflow also owns in-memory scheduling, commit serialization, review work, budgets and health brakes, while current lock acquisition is read-then-write and unfenced. Therefore files make later reconstruction possible but do not prove live takeover safety or atomic exclusion. This documentation-first hotfix removes the unsafe permission before any executor work begins; reevaluation is evidence-gated, not inferred from product capability claims.
 
 **Impact:** documentation/policy only — no executor, script, hook, manifest, runtime config or product state changed. Canonical current truth: constitution §14 + `factory/standards/agent-portability.md` PORT-5 + DR-113. Mission Control mirrors the operator-facing explanation and its FRD-08 contract; see its decision log for the product-side write.
-
-## 2026-07-15 — PROMPT-8: runtime-synthesized dispatch prompts are self-contained on-camera briefs (LESSON-0147 promoted)
-
-**What:** `factory/standards/prompting-conventions.md` gains **PROMPT-8** (SHOULD, manual): the dispatch prompts that engines/skills synthesize at runtime for ephemeral subagents (the build engine's builder/reviewer/patch briefs) are a third governed prompt surface — they must be self-contained on-camera briefs (role+boundary first, owned files named, run/verify commands embedded, explicit output contract, the DR-108 context pack inlined verbatim), never pointer specs ("read the work order and do what it says"), because they render live on La Fragua and seed the retry/diagnosis loop, and an ephemeral worker is stateless. The engine's `woCtx()` injector is the reference implementation — this codifies existing practice (DR-108 predates it); no engine code changed. Owner-approved in conversation (HIGH-RISK gate satisfied); promoted from **LESSON-0147** (ringer external-repo mining, 2026-07-10 entry below), now `promotion: approved` + back-linked (DR-047 lineage).
-
-**Propagation (DR-116 sweep complete):** scope statement extended in the standard (its line 5 was the only place asserting the narrower two-surface scope); `rule-registry.md` row + counts (131→132, manual 99→100); `factory/standards/README.md` index row (also fixed the pre-existing omission of prompting-conventions.md from the index); DR-114 `default:` in `registry.yaml` extended to PROMPT-1..8 with clause (8); Mission Control Manual updated in the same change (DR-046): `estandares-y-reglas` `.md` + `manualPages.tsx` counts/range. Factory-internal standard — **no rule-library change, no OVERLAY bump** (explicit decision, not an omission). Severity SHOULD not MUST: no deterministic verifier ships (enforcement is edit-time self-check + reviewer of engine changes), and the registry holds at 0 aspirational MUSTs. Pre-existing `check-standards.sh` FAILs (document-consistency/single-source-of-truth registry rows) are BL-0055, untouched here.
 
 ## 2026-07-10 — External-repo mining: ringer (NateBJones-Projects) harvested — 6 lessons + 2 backlog items, 9 findings discarded with cause
 
@@ -2483,6 +2521,11 @@ flows scan for the next free id at creation time (prevention on top of the gate)
 **Why:** The audit found two incompatible Git operating models in the docs and a scattered/implicit gate-strength story; agents reading the standard need one unambiguous answer. Surfacing `/change` matches the DR-069 simplification.
 **Impact:** `factory/standards/quality.md` (§CI rewritten + new HARD-vs-ADVISORY subsection), `CLAUDE.md` (operation list). No code/behavior change. The standards Reference catalog in Mission Control auto-derives; the hand-authored Manual narrative sync (gates/git) is the already-tracked queue item `mc-manual-narrative-sync.md`. P1-7 (a hard write-gate block) deliberately NOT changed — already settled in the registry (a hook can't distinguish a significant change from a micro-edit; the persistent nudge is the chosen enforcement).
 
+## 2026-06-30 — Blocked merge must reach the OWNER, in the conversation (DR-099 refinement)
+**What:** Strengthened DR-099's "loud merge hand-back" so a `merge-queue.sh` hand-back (rebase conflict 10 / red gate 11 / busy main 12) is loud on **two** channels, not one: (a) the script fires a desktop notification (it already did, in the template), AND (b) **the agent MUST surface the blocked merge IN THE CONVERSATION immediately** — what's blocked, why, that the work is preserved on its branch, and what's needed — and must NOT go off doing silent workarounds. Made explicit that this is the session's OWN deliverable and is therefore EXEMPT from the conversation-isolation rule (3) that silences *other* sessions' reds. Also fixed a concrete drift: Mission Control's `.pandacorp/merge-queue.sh` was STALE — its `fail()` lacked the desktop-notification the template carries — so even channel (a) was dead; synced it to the template.
+**Why:** A Party-liveness change (REQ-06-018) was built green in a worktree but its merge-queue handed back repeatedly (the parallel FRD-10 build left `main` red on its OWN dead exports; then a worktree-e2e env gap couldn't find gitignored `factory/profile.md`). The owner NEVER HEARD — the agent stayed silent (over-applying DR-099's "don't narrate other sessions") and went off doing `:1987`/`:3100` workarounds; the owner only found out by asking and warned the finished work could be **lost** when the conversation ended. Two holes: the stale script (no notification) and a rule that only mandated a desktop notification (easily missed), never an in-chat tell. The owner asked to fix the rule so a blocked merge can never be silent.
+**Impact:** `factory/decisions/registry.yaml` (DR-099 default (2) + nota), `factory/standards/build-orchestration.md` §9 (Loud merge hand-back bullet), `plugin/templates/shared/.pandacorp/guide.md.tpl` + `mission-control/.pandacorp/guide.md` (DR-099 paragraph), `plugin/templates/shared/.pandacorp/merge-queue.sh` (comment) + `mission-control/.pandacorp/merge-queue.sh` (synced `fail()` notification), `plugin/.claude-plugin/plugin.json` (v9.28.2). DR catalog in the Manual auto-derives; no narrative-flow change. Activation: commit + `claude plugin update pandacorp@panda-corp`.
+
 ## 2026-06-29 — Skill renamed `/pandacorp:blueprint` → `/pandacorp:architecture` (the command reflects the whole architecture phase)
 **What:** Renamed the architecture-phase SKILL command from `/pandacorp:blueprint` to `/pandacorp:architecture` — the phase produces the *whole* platform architecture (stack + data model + ADRs + per-FRD blueprints + work orders + the digest), not just "a blueprint", and the command now matches the existing `phase: architecture` and the design→architecture step. **Surgically the COMMAND only** — the per-FRD `blueprint.md` artifact, `blueprint-template.md`, the "Build Plan" section and the `BP-NN` ids are PRESERVED (they are part of the `FRD > FDD > design-tokens > blueprint > work order` source-of-truth hierarchy; renaming them would break every project's docs and the readiness gate). The `pandacorp:architect` AGENT (distinct namespace) is unchanged. `git mv plugin/skills/blueprint → architecture`; updated the H1 and every LIVE command reference across skills (scaffold/spec/design/implement/work-orders), templates (STACK guides, rules/work-orders READMEs), `factory/decisions/registry.yaml` (the live canonical pointer + the DR-032/100/102 command shorthands), the factory `README.md`/`CLAUDE.md`/`standards/infra.md`, the Manual narrative (concepts/el-pipeline, el-plugin, tutorial) and Mission Control's UI + next-step map + the FRD-02 next-step doc. Historical decision-log entries (which name the old command/path as they were) were left intact.
 **Why:** Owner ask (2026-06-29): "blueprint" undersells the phase, which is the full architecture. Aligning the command with the phase name removes the mismatch.
@@ -2492,11 +2535,6 @@ flows scan for the next free id at creation time (prevention on top of the gate)
 **What:** The renamed architecture skill now EMITS `.pandacorp/comms/arquitectura-resumen.md` at the end of the phase (gitignored Spanish, owner-facing — same class as `spec-resumen.md` from `/spec`), following a new `plugin/templates/docs/architecture-digest-template.md`. The digest is a high-level, scannable Spanish narrative: a stack table (capa · elección · por qué), a CONDITIONAL data-model section (the "Sin BD — contenido como código" branch for content-as-code projects, or the DB entities), communication/services, and one card per FRD (its blueprint one-liner + its work orders). The implementation-plan DAG, the ADRs and the env vars are NOT duplicated in the digest — Mission Control reads those LIVE from the real artifacts so they never drift.
 **Why:** Mirrors the spec digest so the owner sees the architecture natively on the board (DR-046 — the factory's operable surface surfaces in MC). Single-source: narrative in the digest, machine-truth (WOs/ADRs/env) live.
 **Impact:** `plugin/skills/architecture/SKILL.md` (step 9c), **NEW** `plugin/templates/docs/architecture-digest-template.md`. Same plugin bump as the rename (v9.29.0). MC consumes it via the new Arquitectura tab (see `mission-control/docs/decision-log.md`). Plugin-side log: `plugin/docs/decision-log.md`.
-
-## 2026-06-30 — Blocked merge must reach the OWNER, in the conversation (DR-099 refinement)
-**What:** Strengthened DR-099's "loud merge hand-back" so a `merge-queue.sh` hand-back (rebase conflict 10 / red gate 11 / busy main 12) is loud on **two** channels, not one: (a) the script fires a desktop notification (it already did, in the template), AND (b) **the agent MUST surface the blocked merge IN THE CONVERSATION immediately** — what's blocked, why, that the work is preserved on its branch, and what's needed — and must NOT go off doing silent workarounds. Made explicit that this is the session's OWN deliverable and is therefore EXEMPT from the conversation-isolation rule (3) that silences *other* sessions' reds. Also fixed a concrete drift: Mission Control's `.pandacorp/merge-queue.sh` was STALE — its `fail()` lacked the desktop-notification the template carries — so even channel (a) was dead; synced it to the template.
-**Why:** A Party-liveness change (REQ-06-018) was built green in a worktree but its merge-queue handed back repeatedly (the parallel FRD-10 build left `main` red on its OWN dead exports; then a worktree-e2e env gap couldn't find gitignored `factory/profile.md`). The owner NEVER HEARD — the agent stayed silent (over-applying DR-099's "don't narrate other sessions") and went off doing `:1987`/`:3100` workarounds; the owner only found out by asking and warned the finished work could be **lost** when the conversation ended. Two holes: the stale script (no notification) and a rule that only mandated a desktop notification (easily missed), never an in-chat tell. The owner asked to fix the rule so a blocked merge can never be silent.
-**Impact:** `factory/decisions/registry.yaml` (DR-099 default (2) + nota), `factory/standards/build-orchestration.md` §9 (Loud merge hand-back bullet), `plugin/templates/shared/.pandacorp/guide.md.tpl` + `mission-control/.pandacorp/guide.md` (DR-099 paragraph), `plugin/templates/shared/.pandacorp/merge-queue.sh` (comment) + `mission-control/.pandacorp/merge-queue.sh` (synced `fail()` notification), `plugin/.claude-plugin/plugin.json` (v9.28.2). DR catalog in the Manual auto-derives; no narrative-flow change. Activation: commit + `claude plugin update pandacorp@panda-corp`.
 
 ## 2026-06-29 — Back-port: canonical knip.json recognizes Next 16 `src/proxy.ts` (DR-076/DR-059)
 **What:** Added `src/proxy.ts` to the `entry` list of the canonical `plugin/templates/stack-a-nextjs/knip.json` (kept `src/middleware.ts` for Next ≤15 back-compat). Next 16 renamed the middleware file convention to `proxy.ts`; without it as a knip entry, a project's real `src/proxy.ts` isn't traced (a non-fatal "no matches" hint on the stale `middleware.ts` entry + risk of its imports being flagged). Propagated in the SAME change to the live project `personal-page-v2` (its conformance-checked copy now matches the template). Bumped `OVERLAY_VERSION` 8.46.0→8.47.0 so every other Next project picks it up on the next `/pandacorp:upgrade`.

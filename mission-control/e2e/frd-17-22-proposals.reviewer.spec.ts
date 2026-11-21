@@ -2,11 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { FACTORY_ROOT } from "./_slot";
 
 // Reviewer-authored (DR-080). Items and files are created per test and always removed, with ids of
 // the 95xx range so they can never collide with the BL-90*/LESSON-90* fixtures of the behaviour specs.
-const backlog = path.resolve("e2e/fixtures/factory-root/factory/backlog");
-const memory = path.resolve("e2e/fixtures/factory-root/factory/memory");
+const backlog = path.join(FACTORY_ROOT, "factory/backlog");
+const memory = path.join(FACTORY_ROOT, "factory/memory");
 const planted: string[] = [];
 
 function plant(file: string, content: string): string {

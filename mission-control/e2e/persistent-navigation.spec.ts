@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect as baseExpect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { CANONICAL_FACTORY_ROOT } from "./_slot";
 import {
   expectHydrated,
   historyCheckpoint,
@@ -79,11 +80,9 @@ let restoreFixture: (() => Promise<void>) | undefined;
 
 function navigationFixtureRoot(): string {
   // A dev run can isolate mutable data from Tailwind's source scanner and Fast Refresh.
-  const root = path.resolve(
-    process.env.NAVIGATION_TEST_FACTORY_ROOT ?? "e2e/fixtures/factory-root",
-  );
+  const root = path.resolve(process.env.NAVIGATION_TEST_FACTORY_ROOT ?? CANONICAL_FACTORY_ROOT);
   if (
-    root !== path.resolve("e2e/fixtures/factory-root") &&
+    root !== path.resolve(CANONICAL_FACTORY_ROOT) &&
     !root.startsWith(`${path.resolve("test-results")}${path.sep}`)
   ) {
     throw new Error("Navigation fixtures must stay inside this project's test-results directory");

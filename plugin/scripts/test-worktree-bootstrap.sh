@@ -174,20 +174,20 @@ git_q -C "$PORT_MAIN" worktree add --detach "$PORT_WT3" main
 
 ( cd "$PORT_WT1" && bash mission-control/.pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-d1.log" 2>&1 )
 rc_d1=$?
-D1_PORT="$(port_of "$PORT_WT1/mission-control/e2e/server-env.json")"
+D1_PORT="$(cat "$PORT_WT1/mission-control/.pandacorp/run/e2e-port")"
 ok "$([ "$rc_d1" = 0 ] && echo 1 || echo 0)" "(d1) bootstrap exits 0 when server-env.json is present"
-ok "$([ -n "$D1_PORT" ] && [ "$D1_PORT" -ge 3900 ] && [ "$D1_PORT" -lt 4000 ] 2>/dev/null && echo 1 || echo 0)" "(d1) the worktree gets a hash-derived PORT inside [3900,3999] written to server-env.json (got: ${D1_PORT:-<empty>})"
+ok "$([ -n "$D1_PORT" ] && [ "$D1_PORT" -ge 3900 ] && [ "$D1_PORT" -lt 4000 ] 2>/dev/null && echo 1 || echo 0)" "(d1) the worktree gets a hash-derived PORT inside [3900,3999] written to ignored e2e-port (got: ${D1_PORT:-<empty>})"
 
 # (d2) re-bootstrap the SAME worktree -> the SAME port (deterministic, not re-randomized each run)
 ( cd "$PORT_WT1" && bash mission-control/.pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-d1b.log" 2>&1 )
-D1_PORT_REBOOT="$(port_of "$PORT_WT1/mission-control/e2e/server-env.json")"
+D1_PORT_REBOOT="$(cat "$PORT_WT1/mission-control/.pandacorp/run/e2e-port")"
 ok "$([ "$D1_PORT_REBOOT" = "$D1_PORT" ] && echo 1 || echo 0)" "(d2) re-bootstrapping the SAME worktree reproduces the SAME port ($D1_PORT_REBOOT vs $D1_PORT)"
 
 # (d3) PANDACORP_E2E_PORT overrides the derivation outright, on a SECOND worktree, to a value
 # outside the reserved [3900,3999) range — so it is GUARANTEED to differ from (d1)'s port, proving
 # "two different worktrees -> two different ports" without a flaky hash-collision assumption.
 ( cd "$PORT_WT3" && PANDACORP_E2E_PORT=39877 bash mission-control/.pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-d3.log" 2>&1 )
-D3_PORT="$(port_of "$PORT_WT3/mission-control/e2e/server-env.json")"
+D3_PORT="$(cat "$PORT_WT3/mission-control/.pandacorp/run/e2e-port")"
 ok "$([ "$D3_PORT" = "39877" ] && echo 1 || echo 0)" "(d3) PANDACORP_E2E_PORT overrides the derived port (got: ${D3_PORT:-<empty>})"
 ok "$([ "$D3_PORT" != "$D1_PORT" ] && echo 1 || echo 0)" "(d3) two DIFFERENT worktrees end up with two DIFFERENT ports ($D1_PORT vs $D3_PORT)"
 
@@ -195,12 +195,11 @@ ok "$([ "$D3_PORT" != "$D1_PORT" ] && echo 1 || echo 0)" "(d3) two DIFFERENT wor
 MAIN_PORT="$(port_of "$PORT_MAIN/mission-control/e2e/server-env.json")"
 ok "$([ "$MAIN_PORT" = "3900" ] && echo 1 || echo 0)" "(d4) the MAIN checkout's committed PORT (3900) is never rewritten by a worktree bootstrap"
 
-# (d5) the local rewrite must not show up as a dirty tracked file (skip-worktree) — otherwise the
-# Stop hook's clean-tree fast-path (BL-0044) is defeated forever in every worktree.
+# (d5) Port allocation must leave the tracked input unchanged; no hidden index edits are needed.
 DIRTY_D1="$(cd "$PORT_WT1" && git status --porcelain -- mission-control/e2e/server-env.json)"
-ok "$([ -z "$DIRTY_D1" ] && echo 1 || echo 0)" "(d5) the rewritten server-env.json does not show as dirty in \`git status\` (skip-worktree)"
+ok "$([ -z "$DIRTY_D1" ] && echo 1 || echo 0)" "(d5) committed server-env.json remains clean"
 
-# (d6) other fields in server-env.json survive the rewrite untouched (only PORT changes)
+# (d6) All committed server environment fields stay unchanged.
 FACTORY_ROOT_FIELD="$(jq -r '.PANDACORP_FACTORY_ROOT // empty' "$PORT_WT1/mission-control/e2e/server-env.json" 2>/dev/null)"
 ok "$([ "$FACTORY_ROOT_FIELD" = "./e2e/fixtures/factory-root" ] && echo 1 || echo 0)" "(d6) non-PORT fields in server-env.json are preserved (PANDACORP_FACTORY_ROOT unchanged)"
 
@@ -233,7 +232,7 @@ mkdir -p "$URL_MAIN/.pandacorp" "$URL_MAIN/e2e"
   "LONGER_PORT_URL": "http://127.0.0.1:40370"
 }
 JSON
-  mkdir -p .claude && echo 'node_modules/' > .gitignore \
+  mkdir -p .claude && printf 'node_modules/\n**/.pandacorp/run/\n.pandacorp/run/\n' > .gitignore \
   && echo '{"version":"0.0.1","configurations":[{"name":"app","runtimeExecutable":"pnpm","runtimeArgs":["run","dev"],"port":4030}]}' > .claude/launch.json \
   && git add -A && git_q commit -qm seed )
 URL_WT="$TMPROOT/url-wt"
@@ -253,17 +252,17 @@ ok "$([ "$(f_key "$URL_ENV" DATABASE_URL)" = "postgresql://postgres:dev@localhos
 ok "$([ "$(f_key "$URL_ENV" NEXT_PUBLIC_PRODUCT_URL)" = "https://funkotracker.example" ] && echo 1 || echo 0)" "(f2) a remote URL is untouched"
 ok "$([ "$(f_key "$URL_ENV" LONGER_PORT_URL)" = "http://127.0.0.1:40370" ] && echo 1 || echo 0)" "(f2) a port that merely starts with the own PORT digits is untouched"
 ( cd "$URL_WT" && PANDACORP_E2E_PORT=3964 bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-f3.log" 2>&1 )
-ok "$([ "$(f_key "$URL_ENV" PORT)" = "3964" ] && [ "$(f_key "$URL_ENV" BETTER_AUTH_URL)" = "http://127.0.0.1:4037" ] && echo 1 || echo 0)" "(f3) a re-bootstrap changes PORT alone and preserves URLs (got: $(f_key "$URL_ENV" PORT) / $(f_key "$URL_ENV" BETTER_AUTH_URL))"
+ok "$([ "$(f_key "$URL_ENV" PORT)" = "4037" ] && [ "$(cat "$URL_WT/.pandacorp/run/e2e-port")" = "3964" ] && [ "$(f_key "$URL_ENV" BETTER_AUTH_URL)" = "http://127.0.0.1:4037" ] && echo 1 || echo 0)" "(f3) a re-bootstrap keeps tracked PORT/URLs and writes only ignored port (got: $(f_key "$URL_ENV" PORT) / $(f_key "$URL_ENV" BETTER_AUTH_URL))"
 ok "$([ "$(f_key "$URL_MAIN/e2e/server-env.json" BETTER_AUTH_URL)" = "http://127.0.0.1:4037" ] && echo 1 || echo 0)" "(f4) the MAIN checkout keeps its committed own-origin URL"
-ok "$([ -z "$(cd "$URL_WT" && git status --porcelain -- e2e/server-env.json)" ] && echo 1 || echo 0)" "(f5) the rewritten file stays hidden from \`git status\` (skip-worktree)"
-ok "$([ "$(jq -r '.configurations[0].autoPort' "$URL_WT/.claude/launch.json" 2>/dev/null)" = "true" ] && echo 1 || echo 0)" "(f6) a TRACKED launch.json is still flipped to autoPort"
+ok "$([ -z "$(cd "$URL_WT" && git status --porcelain -- e2e/server-env.json)" ] && echo 1 || echo 0)" "(f5) the unchanged file stays clean without index flags"
+ok "$([ "$(jq -r '.configurations[0].port' "$URL_WT/.claude/launch.json" 2>/dev/null)" = "4030" ] && echo 1 || echo 0)" "(f6) a TRACKED launch.json keeps its committed port"
 ok "$([ -z "$(cd "$URL_WT" && git status --porcelain)" ] && echo 1 || echo 0)" "(f6) ...and the whole worktree stays clean for merge-queue.sh (got: $(cd "$URL_WT" && git status --porcelain | tr '\n' ' '))"
 # BL-0288: numeric JSON PORT is valid too; nested projects preserve URLs and leave no temp files.
 NUM_MAIN="$TMPROOT/numeric-main"
 mkdir -p "$NUM_MAIN/mission-control/e2e" "$NUM_MAIN/mission-control/.pandacorp"
 ( cd "$NUM_MAIN" && git init -q -b main \
   && echo '{"name":"numeric-product"}' > mission-control/package.json \
-  && printf 'node_modules/\n.env.local\n' > .gitignore \
+  && printf 'node_modules/\n.env.local\n**/.pandacorp/run/\n' > .gitignore \
   && cp "$SCRIPT_SRC" mission-control/.pandacorp/worktree-bootstrap.sh \
   && echo '{"PORT":4037,"URL":"http://[::1]:4037"}' > mission-control/e2e/server-env.json \
   && git add -A && git_q commit -qm seed )
@@ -274,7 +273,7 @@ echo '{"PORT":3989,"URL":"http://[::1]:4037"}' > "$NUM_ENV"
 git_q -C "$NUM_WT" update-index --skip-worktree mission-control/e2e/server-env.json
 ( cd "$NUM_WT/mission-control" && PANDACORP_E2E_PORT=3964 bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/f8.log" 2>&1 )
 rc_f8=$?
-ok "$([ "$rc_f8" = 0 ] && [ "$(f_key "$NUM_ENV" PORT)" = 3964 ] && [ "$(f_key "$NUM_ENV" URL)" = 'http://[::1]:4037' ] && echo 1 || echo 0)" "(f8) numeric PORT changes in a nested project while IPv6 URL stays unchanged"
+ok "$([ "$rc_f8" = 0 ] && [ "$(f_key "$NUM_ENV" PORT)" = 3989 ] && [ "$(cat "$NUM_WT/mission-control/.pandacorp/run/e2e-port")" = 3964 ] && [ "$(f_key "$NUM_ENV" URL)" = 'http://[::1]:4037' ] && echo 1 || echo 0)" "(f8) legacy numeric PORT residue is preserved until queue restore; private port is separate"
 ok "$([ -z "$(find "$NUM_WT/mission-control/e2e" -name 'server-env.json.*')" ] && [ -z "$(git -C "$NUM_WT" status --porcelain)" ] && echo 1 || echo 0)" "(f8) numeric PORT leaves no temp file and clean git status"
 
 # BL-0288: malformed input must leave neither a partial replacement nor mktemp debris, and the
@@ -282,7 +281,7 @@ ok "$([ -z "$(find "$NUM_WT/mission-control/e2e" -name 'server-env.json.*')" ] &
 echo '{broken' > "$NUM_ENV"
 ( cd "$NUM_WT" && PANDACORP_E2E_PORT=3964 bash mission-control/.pandacorp/worktree-bootstrap.sh >"$TMPROOT/f9.log" 2>&1 )
 rc_f9=$?
-ok "$([ "$rc_f9" = 0 ] && [ "$(cat "$NUM_ENV")" = '{broken' ] && [ -z "$(find "$NUM_WT/mission-control/e2e" -name 'server-env.json.*')" ] && echo 1 || echo 0)" "(f9) jq failure is nonfatal, preserves input and removes its temp file"
+ok "$([ "$rc_f9" = 0 ] && [ "$(cat "$NUM_ENV")" = '{broken' ] && [ -z "$(find "$NUM_WT/mission-control/e2e" -name 'server-env.json.*')" ] && echo 1 || echo 0)" "(f9) malformed JSON stays untouched; bootstrap only owns ignored port"
 git_q -C "$NUM_MAIN" worktree remove --force "$NUM_WT"
 git_q -C "$URL_MAIN" worktree remove --force "$URL_WT"
 

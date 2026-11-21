@@ -922,19 +922,22 @@ function ConceptHooks(): React.JSX.Element {
         por carpeta: si otro está verificando, espera a que termine. Un sello solo evita repetirlo
         cuando el árbol, las dependencias, el entorno y los fixtures siguen idénticos. El navegador
         comparte un build de producción; sin inventario móvil conserva la cobertura anterior, y solo
-        una revisión permite excluir duplicados. Los tests que escriben datos siguen en serie.{" "}
-        <Code>--affected</Code> sirve para iterar y siempre es parcial. <Code>--no-bail</Code>{" "}
-        recoge los fallos de todas las fases del navegador con un único worker, aunque falle una
-        fase anterior. La certificación mantiene tres workers para los tests seguros y se detiene
-        pronto (DR-158).
+        una revisión permite excluir duplicados. Los tests con escrituras pueden usar copias
+        privadas por worker y servidores del mismo build si su inventario está revisado; los que
+        comparten datos y las capturas visuales siguen en serie. <Code>--affected</Code> sirve para
+        iterar y siempre es parcial. <Code>--no-bail</Code> recoge los fallos de todas las fases del
+        navegador con un único worker, aunque falle una fase anterior. La certificación mantiene
+        tres workers para los tests seguros y se detiene pronto (DR-158). El puerto privado del
+        worktree vive en un archivo ignorado; la cola usa el puerto comprometido para conservar el
+        origen de los datos.
       </Lead>
       <Lead>
         Para conservar esa velocidad al crecer la suite, cada spec nueva o modificada lleva una
-        clasificación revisada: paralela o serial, y cobertura móvil. Si falta, el gate avisa y
-        conserva la ejecución serial en ambas plataformas. Vitest usa Node por defecto y carga DOM y
-        jest-dom solo donde se declaran. Un presupuesto por etapa compara el pase completo con una
-        referencia revisada y avisa de las demoras; nunca quita pruebas ni bloquea por tiempo
-        (DR-159).
+        clasificación revisada: paralela de lectura, aislada por worker o serial, y cobertura móvil.
+        Si falta, el gate avisa y conserva la ejecución serial en ambas plataformas. Vitest usa Node
+        por defecto y carga DOM y jest-dom solo donde se declaran. Un presupuesto por etapa compara
+        el pase completo con una referencia revisada y avisa de las demoras; nunca quita pruebas ni
+        bloquea por tiempo (DR-159).
       </Lead>
       <HooksDiagram />
       <NotePanel icon="lock">

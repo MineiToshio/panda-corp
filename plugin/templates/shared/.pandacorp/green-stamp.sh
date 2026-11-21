@@ -137,11 +137,12 @@ def group(name, paths):
 group('verify', ['.pandacorp/verify.sh', '.pandacorp/green-stamp.sh', '.pandacorp/vitest-policy.ts'])
 group('dependencies', ['node_modules/.modules.yaml', 'node_modules/.pnpm/lock.yaml',
                        'node_modules/.package-lock.json', 'package.json', *Path('.').glob('*lock*')])
-group('e2e', ['e2e', 'playwright.config.ts', '.pandacorp/run/lane.env', *Path('.').glob('.env*')])
+group('e2e', ['e2e', 'playwright.config.ts', '.pandacorp/run/lane.env', '.pandacorp/run/e2e-port', *Path('.').glob('.env*')])
 groups['node'] = hashlib.sha256(subprocess.check_output(['node', '--version'])).hexdigest()
 controls = {
     'PANDACORP_VERIFY_OWNER_PID', 'PANDACORP_STAMP_CHECK_PID', 'PANDACORP_VITEST_SEED',
     'PANDACORP_VERIFY_NO_BAIL', 'PANDACORP_E2E_SERVER', 'PANDACORP_E2E_TIER',
+    'PANDACORP_E2E_SLOT_PORTS', 'PANDACORP_E2E_COMMITTED_PORT', 'PANDACORP_E2E_SLOTS',
     'PANDACORP_E2E_WORKERS', 'PANDACORP_E2E_CERTIFICATION', 'PANDACORP_STOP_GATE',
     'PANDACORP_EVENTS_LOG', 'PANDACORP_OWNER_RELEASE_OK',
     'TMPDIR', 'npm_config_cache', 'PANDACORP_CLEANUP_SESSION', 'PANDACORP_SESSION_TEMP_BASE',

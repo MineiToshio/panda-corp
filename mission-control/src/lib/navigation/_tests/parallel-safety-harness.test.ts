@@ -125,3 +125,51 @@ it("rejects unsafe additions to the parallel tier before launching a browser", (
     audit(file);
   }
 });
+
+it("keeps isolated mutations inside the slot boundary", () => {
+  const e2e = path.resolve("e2e");
+  const isolated = JSON.parse(
+    fs.readFileSync(path.join(e2e, "isolated-specs.json"), "utf8"),
+  ) as Record<string, string>;
+  const safe = JSON.parse(
+    fs.readFileSync(path.join(e2e, "parallel-safe.json"), "utf8"),
+  ) as string[];
+  const serial = JSON.parse(fs.readFileSync(path.join(e2e, "serial-specs.json"), "utf8")) as Record<
+    string,
+    string
+  >;
+  const visited = new Set<string>();
+  function audit(file: string): void {
+    if (visited.has(file) || file === path.join(e2e, "_slot.ts")) return;
+    visited.add(file);
+    const source = fs.readFileSync(file, "utf8");
+    expect(source, file).not.toMatch(
+      /e2e\/fixtures|git\s+show\s+HEAD|["']show["']\s*,\s*["']HEAD:/,
+    );
+    if (source.includes("node:child_process")) {
+      // Conservative allowance: every subprocess must inline its slot-root argument array.
+      // Shell execution and indirect argv builders require a separate isolation review.
+      expect(source, file).toMatch(
+        /import\s*\{[^}]*FACTORY_ROOT[^}]*\}\s*from\s*["']\.\/_slot["']/,
+      );
+      expect(source, file).not.toMatch(/\b(?:exec|execSync|spawn|spawnSync)\s*\(/);
+      const calls = [...source.matchAll(/\bexecFile(?:Sync)?\s*\(([^;]+)/g)];
+      expect(calls.length, file).toBeGreaterThan(0);
+      for (const call of calls)
+        expect(call[1], file).toMatch(
+          /^\s*process\.execPath\s*,\s*\[[^\]]*["']--factory-root["']\s*,\s*FACTORY_ROOT\s*[,\]]/,
+        );
+    }
+    for (const match of source.matchAll(/from\s+["'](\.[^"']+)["']/g)) {
+      const target = path.resolve(path.dirname(file), `${match[1]}.ts`);
+      if (fs.existsSync(target)) audit(target);
+    }
+  }
+  for (const [spec, reason] of Object.entries(isolated)) {
+    expect(reason.trim()).not.toBe("");
+    expect(spec).not.toBe("visual.spec.ts");
+    expect(safe).not.toContain(spec);
+    expect(serial).not.toHaveProperty(spec);
+    audit(path.join(e2e, spec));
+  }
+});

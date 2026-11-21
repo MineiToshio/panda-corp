@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { FACTORY_ROOT } from "./_slot";
 
 let restorePortfolio: (() => void) | undefined;
 test.afterEach(() => {
@@ -12,7 +13,7 @@ test.afterEach(() => {
 test("AC-26-001.1 AC-26-002.1 AC-26-005.1 AC-26-007.1 AC-26-010.1: directory with a missing registry retains URL filters and search", async ({
   page,
 }) => {
-  const portfolio = path.resolve("e2e/fixtures/factory-root/factory/portfolio.md");
+  const portfolio = path.join(FACTORY_ROOT, "factory/portfolio.md");
   const original = fs.readFileSync(portfolio);
   restorePortfolio = () => fs.writeFileSync(portfolio, original);
   fs.writeFileSync(portfolio, "# Portfolio\n");

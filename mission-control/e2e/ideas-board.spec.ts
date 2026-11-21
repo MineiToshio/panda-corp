@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { FACTORY_ROOT } from "./_slot";
 
 test("AC-02-016.1 AC-02-016.2 AC-02-016.3 AC-02-016.4 board filters, phase jumps and browser preference", async ({
   page,
@@ -58,7 +59,7 @@ test("AC-02-012.3 AC-02-012.4 star flips without moving a card", async ({ page }
   const column = star.locator('xpath=ancestor::section[contains(@class, "kcol")]');
   const columnId = await column.getAttribute("id");
   // The write re-serialises the frontmatter: restore the tracked fixture byte for byte.
-  const fixture = path.resolve("e2e/fixtures/factory-root/factory/ideas/idea-discovered.md");
+  const fixture = path.join(FACTORY_ROOT, "factory/ideas/idea-discovered.md");
   const original = fs.readFileSync(fixture);
   try {
     await star.click();

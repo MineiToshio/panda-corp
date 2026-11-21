@@ -135,7 +135,7 @@ Engineering standard (DR-006 covers the approval gate for destructive changes):
   use this shared judge; any doubt reruns full. Arbitrary node_modules edits or undeclared external
   input roots are outside that fingerprint: invalidate the stamp when modifying them.
 - Full browser gates use the managed `e2e/prod-server.mjs` seed and the same fixture environment
-  at build/start: one build and one Next start, real production CSP/page-error checks included.
+  at build/start: one build and an owned canonical Next start, real production CSP/page-error checks included. Reviewed isolated projects may add worker-slot servers from that same build.
 - Without a reviewed mobile inventory, keep all mobile specs except DR-143's existing
   shell/headers/hydration exclusions. `e2e/mobile-specs.json` may reduce coverage only with
   `{include, desktopOnly, review}`: explicit spec paths and an existing `docs/reviews/*.md`
@@ -144,9 +144,17 @@ Engineering standard (DR-006 covers the approval gate for destructive changes):
   A spec that sets its own phone/tablet widths retains those checks in its desktop project.
 - `e2e/parallel-safe.json` permits only audited whole specs without shared writes, including
   transitive app effects. Combined projects run safe files on up to 3 workers, then serial desktop,
-  then serial mobile on one worker; visual and fixture/ledger writers stay serial. In combined
+  then serial mobile on one worker; visual and canonical fixture/ledger writers stay serial.
+  Proposal 43 adds an optional `e2e/isolated-specs.json` (`{spec: reason}`), disjoint from the safe
+  list. In combined production runs its specs run as `desktop-isolated`/`mobile-isolated`, alongside
+  safe projects, on worker-owned fixture copies under `test-results/e2e-slots/<i>/fixtures`.
+  Each slot has one owned server from the same build; fixture environment paths and test mutations
+  resolve to that slot. Serial desktop waits for all four parallel projects, then mobile.
+  Visual may never be isolated. Dev/since runs keep isolated specs in serial coverage.
+  `PANDACORP_E2E_SLOT_PORTS` supplies distinct probed ports matching effective worker count;
+  diagnostics have one worker and one slot. With no isolated list, server/project selection is unchanged. In combined
   diagnostic mode, use ONE global worker and omit success dependencies: failed projects must not
-  suppress the other platform/serial projects. Preserve one build/server/invocation and a red exit
+  suppress the other platform/serial projects. Preserve one build/invocation with owned canonical/slot servers and a red exit
   after accumulated failures. Certification keeps its 3-worker safe tier and fail-fast dependencies.
   Existing manual
   `parallel`/`serial` tier filters remain available; a full certificate uses the combined invocation.
@@ -159,13 +167,14 @@ Engineering standard (DR-006 covers the approval gate for destructive changes):
   Nested projects normalize repository paths; changes outside the project retain browser conservatively. Never use this mode for G3.
 
 Executable evidence: `test-verify-gate-report.sh`, `test-verify-before-stop.sh`,
-`test-e2e-tiers.mjs`, `test-e2e-diagnostic-phases.mjs` (real scheduler, browser/server-free), and `test-merge-queue-{certified-tree,release-gate,lock-refresh}.sh`.
+`test-e2e-tiers.mjs`, `test-playwright-port-precedence.sh`, `test-e2e-diagnostic-phases.mjs` (real scheduler, browser/server-free), and `test-merge-queue-{certified-tree,release-gate,lock-refresh}.sh`.
 
 ## Keeping verification fast as suites grow (DR-159)
 
 - Inventory drift is visible on every gate invocation, without changing DR-158 selection.
   Opt in per axis using `e2e/parallel-safe.json` and `e2e/mobile-specs.json`.
-  Safe specs remain a path array. Explicit serial specs live in `e2e/serial-specs.json`,
+  Safe specs remain a path array; isolated specs use a reason object and count as classified.
+  The three lists must be disjoint; overlaps/stale entries warn. Explicit serial specs live in `e2e/serial-specs.json`,
   a `{ "relative.spec.ts": "reason, including shared/transitive writes" }` object.
   Unlisted specs warn with their paths and remain serial + both platforms. A serial
   entry documents a verdict; it never changes the scheduler or overrides a safe entry.

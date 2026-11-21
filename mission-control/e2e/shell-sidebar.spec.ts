@@ -2,9 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { FACTORY_ROOT } from "./_slot";
 
-const ledger = path.resolve("e2e/fixtures/factory-root/factory/gamification-ledger.json");
-const status = path.resolve("e2e/fixtures/factory-root/mission-control/.pandacorp/status.yaml");
+const ledger = path.join(FACTORY_ROOT, "factory/gamification-ledger.json");
+const status = path.join(FACTORY_ROOT, "mission-control/.pandacorp/status.yaml");
 const committedStatus = fs.readFileSync(status, "utf8");
 const FRESH_TROPHIES = [
   "El primer ladrillo",

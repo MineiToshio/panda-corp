@@ -1,10 +1,14 @@
+import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
 import { observeProjectLive, refreshFromProjectChange } from "./_live-refresh";
+import { FACTORY_ROOT } from "./_slot";
 
 const BASE = "/portfolio/mission-control/observability";
-const ORDER =
-  "e2e/fixtures/factory-root/mission-control/docs/frds/frd-01-x/work-orders/wo-01-003-board.md";
+const ORDER = path.join(
+  FACTORY_ROOT,
+  "mission-control/docs/frds/frd-01-x/work-orders/wo-01-003-board.md",
+);
 
 async function settled(page: Page, href: string) {
   await gotoHydrated(page, href, { selector: ".seg button" });

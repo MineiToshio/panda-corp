@@ -1,10 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, type Page } from "@playwright/test";
+import { FACTORY_ROOT } from "./_slot";
 
-export const fixtureLedger = path.resolve(
-  "e2e/fixtures/factory-root/factory/gamification-ledger.json",
-);
+export const fixtureLedger = path.join(FACTORY_ROOT, "factory/gamification-ledger.json");
 
 /** Never reset the shared fixture underneath the Server Action's atomic writer. */
 export async function waitForLedgerIdle(): Promise<void> {

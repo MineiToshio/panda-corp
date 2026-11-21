@@ -1,5 +1,7 @@
+import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { FACTORY_ROOT } from "./_slot";
 
 const SHOTS = process.env.S2A_SHOTS;
 
@@ -40,7 +42,7 @@ test("a keyboard toggle keeps focus on the star", async ({ page }) => {
   await gotoHydrated(page, "/board", { selector: '[role="switch"]' });
   const star = page.getByRole("button", { name: /favorita.*AI-powered code review tool/ });
   const fs = await import("node:fs");
-  const fixture = "e2e/fixtures/factory-root/factory/ideas/idea-discovered.md";
+  const fixture = path.join(FACTORY_ROOT, "factory/ideas/idea-discovered.md");
   const original = fs.readFileSync(fixture);
   try {
     await star.focus();

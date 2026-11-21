@@ -1,6 +1,7 @@
 # Mission Control e2e platform inventory — DR-158
 
-Inventory of **discovered cases**, including explicitly skipped applicability cases;
+The phase-2 execution amendment below is current; later historical audit sections preserve
+prior evidence. The case table is the earlier inventory of **discovered cases**, including explicitly skipped applicability cases;
 these counts are not passed tests. Same worktree, before/after configuration, Playwright 1.61.0.
 
 | Project | Before (dev applicability) | After (dev applicability) |
@@ -25,7 +26,8 @@ The desktop column below means the **project**, not a promise of fixed desktop v
 
 ## Execution and shared state
 
-`verify.sh` runs one production build and one combined Playwright invocation/Next start.
+`verify.sh` runs one production build and one combined Playwright invocation with an owned
+canonical Next start plus optional isolated slot servers.
 The reviewed parallel tier now contains 35 root specs: the three native readers plus 32
 project-owned UI specs using `e2e/_read-only.ts`. Root-layout hydration normally invokes
 `GamificationLedgerSync` → `snapshotGamificationLedger`, which creates a shared ledger lock even
@@ -55,57 +57,137 @@ forbidden POST fails, missing manifests abort/fail, body errors still close, and
 context.close is caught by the subsequent fingerprint. Browser behavior of the isolated rejection
 still requires the real production run.
 
-The five managed JS gates remain byte-identical to their templates and serial: smoke, responsive,
-shell, tokens and page-errors. They still exercise genuine ledger boot integration. All nine nested
-persistent-navigation specs also remain serial: eight still have the genuine boot action (seven
-create extra contexts); history-race explicitly needs the action/response race. This retains the
-complete integration path without a per-project fork of template machinery (DR-059).
+### Proposal 43 phase 2: isolated wave 1 (DR-158 amendment)
 
-The two serial platform projects depend on safe projects → desktop → mobile, each capped at one
-worker, so fixture writers never overlap readers. Certification parallel workers stay at **3**; combined `--no-bail` diagnostics use one global worker and independent projects to accumulate failures without overlap. Safe
-project names carry `-parallel`; mobile inclusion/exclusion and case identities do not change.
+The five managed JS gates remain byte-identical to their templates: smoke, responsive, shell,
+tokens and page-errors. They now run against worker-owned fixtures with the genuine boot action.
+The canonical server remains dedicated to read-only parallel projects and the serial remainder.
+Each isolated worker uses a fresh copy of Git-visible working-tree fixture files under
+`test-results/e2e-slots/<parallelIndex>/fixtures`; sibling vault/HOME/events roots are relocated
+with it. Ignored residue, empty directories and symbolic links are excluded/rejected. Copies stay
+inside the repository so ancestor-based Git readers can still discover it. Slot servers share
+one existing production build, never reuse listeners, and are selected by the worker config reload.
+`slot-self-check.spec.ts` plants a unique BL-99xx item and checks the actual baseURL server sees it.
+
+All four parallel projects precede serial desktop, then serial mobile. The pool defaults to three
+workers/three slots; diagnostics use one worker/one slot and remove success dependencies. With no
+isolated inventory the template retains its original server/project shape. Dev/since/manual serial
+runs keep the full isolated-file coverage in the canonical serial projects. The static harness
+traverses isolated helpers, rejects literal canonical fixture paths and HEAD fixture resets, and
+permits subprocesses only with explicit inline slot-root arguments.
+
+**Expected file selections (72 unique specs; 24 moved + 1 new self-check):**
+
+| Tier | Desktop files | Mobile files | Total project/file selections |
+|---|---:|---:|---:|
+| Read-only parallel | 35 | 19 | 54 |
+| Isolated | 25 | 23 | 48 |
+| Canonical serial | 12 | 12 | 24 |
+
+The historical case table below derives 330/135 read-only cases, 179/144 moved cases and 37/37
+serial cases from its earlier dev inventory. The new self-check adds one case on each platform,
+so that inventory predicts **864 discovered dev cases**, with isolated 180/145. The production
+page-error gate adds one case for each of the 14 current surfaces on each platform (its sentinel
+remains), so expected production selection is:
+
+| Tier | Desktop cases | Mobile cases | Total |
+|---|---:|---:|---:|
+| Read-only parallel | 330 | 135 | 465 |
+| Isolated | 194 | 159 | 353 |
+| Canonical serial | 37 | 37 | 74 |
+| Total | 561 | 331 | 892 |
+
+These are derived expectations, not current Playwright discovery or passed-browser counts.
+The previous production baseline was 890; only the two self-check cases are added. Re-discover
+on the installed runner and run the full gate three times outside the sandbox before claiming
+performance or production case totals.
+
+**Exact moved specs (wave 1 only):**
+
+- `backlog.spec.ts`
+- `commands.spec.ts`
+- `cuentas.reviewer.spec.ts`
+- `cuentas.spec.ts`
+- `frd-02-idea-page.reviewer.spec.ts`
+- `frd-02-s2a.reviewer.spec.ts`
+- `frd-04-11-s5c-gate.reviewer.spec.ts`
+- `frd-05-gate.reviewer.spec.ts`
+- `frd-14-snapshot-and-feedback.behaviour.spec.ts`
+- `frd-17-22-proposals.reviewer.spec.ts`
+- `frd-25-persistent-navigation.behaviour.spec.ts`
+- `ideas-board.spec.ts`
+- `laneM-tablet.spec.ts`
+- `navigation-root.reviewer.spec.ts`
+- `page-errors.spec.ts`
+- `prod-smoke.spec.ts`
+- `proposals.spec.ts`
+- `responsive.spec.ts`
+- `resumen-fragua.reviewer.spec.ts`
+- `resumen.spec.ts`
+- `shell-sidebar.spec.ts`
+- `shell.spec.ts`
+- `smoke.spec.ts`
+- `tokens.spec.ts`
+
+Wave 2 stays serial: `persistent-navigation.spec.ts` and all nine `persistent-navigation/*.spec.ts`.
+`visual.spec.ts` stays canonical/serial for DR-056. `achievements-statistics.spec.ts` stays there
+because its Git seal needs tracked fixture history; it now snapshots working-tree events rather
+than HEAD and removes only its own empty `.pandacorp` directory while preserving pre-existing state.
+
+**Port migration:** bootstrap writes ignored `.pandacorp/run/e2e-port` only. Manual precedence is
+private file, lane.env, committed server-env.json, shell/default. Queue evaluation explicitly sets
+`PANDACORP_E2E_COMMITTED_PORT=1`; old bootstrap skip-worktree restoration remains. Slot ports are
+probed before Playwright and supplied by `PANDACORP_E2E_SLOT_PORTS`; both variables are stamp
+controls. The private port file remains fingerprinted input.
+
+**Sibling audit (read-only, 2026-11-21):** compared against this branch's pre-phase-2 template,
+funko-tracker differs only in the older CI-based snapshot policy and its header comment;
+personal-page-v2 has those same deltas plus the older `.spec.ts`-only path regexes in parallel/mobile
+inventory readers (no `.spec.mts`/`.spec.cts`). Neither has custom port-resolution logic. Neither
+sibling was edited: they still need the coordinator's eventual template upgrade. The synthetic
+port-precedence test exercises the new template under each project's flat/nested topology.
 
 | Spec (under e2e/) | Desktop cases | Mobile before → after | Execution | Coverage rationale |
 |---|---:|---:|---|---|
 | `achievements-statistics.spec.ts` | 4 | 4 → 4 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `achievements.spec.ts` | 2 | 2 → 2 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `backlog.spec.ts` | 2 | 2 → 2 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `commands.spec.ts` | 1 | 1 → 1 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `backlog.spec.ts` | 2 | 2 → 2 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `commands.spec.ts` | 1 | 1 → 1 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `configuration.spec.ts` | 1 | 1 → 1 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `cuentas.reviewer.spec.ts` | 7 | 7 → 7 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `cuentas.spec.ts` | 1 | 1 → 1 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `cuentas.reviewer.spec.ts` | 7 | 7 → 7 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `cuentas.spec.ts` | 1 | 1 → 1 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `documentation.spec.ts` | 1 | 1 → 0 | safe parallel | Own 1280/375 sequence, drawer, Escape/focus |
-| `frd-02-idea-page.reviewer.spec.ts` | 11 | 11 → 11 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `frd-02-s2a.reviewer.spec.ts` | 4 | 4 → 4 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `frd-04-11-s5c-gate.reviewer.spec.ts` | 18 | 18 → 18 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `frd-05-gate.reviewer.spec.ts` | 4 | 4 → 4 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `frd-02-idea-page.reviewer.spec.ts` | 11 | 11 → 11 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `frd-02-s2a.reviewer.spec.ts` | 4 | 4 → 4 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `frd-04-11-s5c-gate.reviewer.spec.ts` | 18 | 18 → 18 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `frd-05-gate.reviewer.spec.ts` | 4 | 4 → 4 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `frd-07-10-s4c.reviewer.spec.ts` | 4 | 4 → 4 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `frd-08-gate.reviewer.spec.ts` | 13 | 13 → 0 | safe parallel | Explicit 1280/375 groups, phone index/touch targets |
 | `frd-13-visual-gate.reviewer.spec.ts` | 71 | 71 → 71 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `frd-14-snapshot-and-feedback.behaviour.spec.ts` | 2 | 2 → 2 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `frd-17-22-proposals.reviewer.spec.ts` | 9 | 9 → 9 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `frd-14-snapshot-and-feedback.behaviour.spec.ts` | 2 | 2 → 2 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `frd-17-22-proposals.reviewer.spec.ts` | 9 | 9 → 9 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `frd-18-gate.reviewer.spec.ts` | 6 | 6 → 0 | safe parallel | Own 1280/1023 widths; remaining assertions are HTTP |
 | `frd-19-app-shell.reviewer.spec.ts` | 64 | 64 → 0 | safe parallel | Own 1280/768/390 matrix, rail boundaries and drawer |
 | `frd-19-sidebar.gate.reviewer.spec.ts` | 6 | 6 → 0 | safe parallel | Every interaction sets its own width via open/helper |
 | `frd-21-pending-merge.behaviour.spec.ts` | 1 | 1 → 1 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `frd-21-pending-merge.reviewer.spec.ts` | 2 | 2 → 0 | safe parallel | Own 375/768 matrix |
-| `frd-25-persistent-navigation.behaviour.spec.ts` | 1 | 1 → 1 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `frd-25-persistent-navigation.behaviour.spec.ts` | 1 | 1 → 1 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `frd10-statistics-layout.reviewer.spec.ts` | 10 | 10 → 0 | safe parallel | Own 320–1440 matrix and long-error 320/390 cases |
 | `frd25-gate-regressions.reviewer.spec.ts` | 7 | 7 → 7 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `frd25-v2-aliases.reviewer.spec.ts` | 1 | 1 → 1 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `headers.spec.ts` | 1 | 0 → 0 | safe parallel | HTTP request only, no viewport |
 | `hydration.spec.ts` | 5 | 0 → 0 | safe parallel | Synthetic intercepted fixture; no app viewport dependency |
-| `ideas-board.spec.ts` | 11 | 11 → 11 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `ideas-board.spec.ts` | 11 | 11 → 11 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `inicio.spec.ts` | 2 | 2 → 2 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `integration-navigation-refresh.spec.ts` | 6 | 6 → 6 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `laneM-tablet.spec.ts` | 12 | 12 → 0 | serial | Every case sets 768 tablet width |
+| `laneM-tablet.spec.ts` | 12 | 12 → 0 | isolated | Every case sets 768 tablet width |
 | `logical-data-model.spec.ts` | 3 | 3 → 3 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `model-s2b.reviewer.spec.ts` | 2 | 2 → 0 | safe parallel | Own 1280/390 groups |
 | `model-usability.spec.ts` | 3 | 3 → 3 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `nav-client-refresh.spec.ts` | 2 | 2 → 2 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `navigation-root.reviewer.spec.ts` | 5 | 5 → 5 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `navigation-root.reviewer.spec.ts` | 5 | 5 → 5 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `observability.spec.ts` | 2 | 2 → 2 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `page-errors.spec.ts` | 1 | 1 → 1 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `page-errors.spec.ts` | 1 | 1 → 1 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `persistent-navigation.spec.ts` | 4 | 4 → 4 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `persistent-navigation/achievements.spec.ts` | 1 | 1 → 1 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `persistent-navigation/board.spec.ts` | 3 | 3 → 3 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
@@ -118,28 +200,29 @@ project names carry `-parallel`; mobile inclusion/exclusion and case identities 
 | `persistent-navigation/workspace.spec.ts` | 3 | 3 → 3 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `portafolio.spec.ts` | 4 | 4 → 4 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `portfolio-spec.spec.ts` | 6 | 6 → 6 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `prod-smoke.spec.ts` | 14 | 14 → 14 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `proposals.spec.ts` | 2 | 2 → 2 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `prod-smoke.spec.ts` | 14 | 14 → 14 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `proposals.spec.ts` | 2 | 2 → 2 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `responsive-widths.reviewer.spec.ts` | 62 | 62 → 0 | safe parallel | Helper sets widths explicitly, including phone and tablet |
-| `responsive.spec.ts` | 9 | 9 → 9 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `resumen-fragua.reviewer.spec.ts` | 18 | 18 → 18 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
-| `resumen.spec.ts` | 3 | 3 → 3 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `responsive.spec.ts` | 9 | 9 → 9 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `resumen-fragua.reviewer.spec.ts` | 18 | 18 → 18 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `resumen.spec.ts` | 3 | 3 → 3 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `shell-hydration.spec.ts` | 4 | 4 → 0 | safe parallel | Every case explicitly sets 1280 |
-| `shell-sidebar.spec.ts` | 3 | 3 → 3 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `shell-sidebar.spec.ts` | 3 | 3 → 3 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `shell-ssr.spec.ts` | 3 | 3 → 0 | safe parallel | Own 390/1280 matrix, JS disabled |
 | `shell-usability.spec.ts` | 10 | 10 → 0 | safe parallel | Every case sets explicit width through helper |
-| `shell.spec.ts` | 23 | 0 → 0 | serial | Own desktop/mobile shell checks; remaining cases only resolve declarations |
-| `smoke.spec.ts` | 9 | 9 → 9 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `shell.spec.ts` | 23 | 0 → 0 | isolated | Own desktop/mobile shell checks; remaining cases only resolve declarations |
+| `smoke.spec.ts` | 9 | 9 → 9 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `tabs-keyboard.reviewer.spec.ts` | 3 | 3 → 0 | safe parallel | Own 390/1280 keyboard matrix |
-| `tokens.spec.ts` | 9 | 9 → 9 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `tokens.spec.ts` | 9 | 9 → 9 | isolated | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `visual-system.spec.ts` | 4 | 4 → 4 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `visual.spec.ts` | 6 | 6 → 6 | serial | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `w6-integration.reviewer.spec.ts` | 3 | 3 → 0 | safe parallel | Every case sets 1280/900/1440 |
 | `work-order-detail.spec.ts` | 2 | 2 → 2 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `workspace-frame.reviewer.spec.ts` | 13 | 13 → 13 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
 | `worktrees.spec.ts` | 1 | 1 → 1 | safe parallel | Inherited viewport / mixed interaction coverage retained on both platforms |
+| `slot-self-check.spec.ts` | 1 | new → 1 | isolated | Real fixture-write/server identity proof on both platforms |
 
-## Verification and measurement limits
+## Historical audit: Verification and measurement limits
 
 Production certification discovery additionally enables the existing page-error sweep on 14
 routes per platform: **560 desktop (230 serial + 330 parallel), 330 mobile (195 serial + 135 parallel), 890 total**.
@@ -159,7 +242,7 @@ Fail-fast saves nothing on an all-green run; the initial small safe tier was exp
 Green-stamp hashes `.env*`, dependency graph metadata and the entire physical e2e tree;
 ordinary ledger/fixture mutations that do not restore bytes prevent certification reuse.
 
-## RVB follow-up: production live-refresh harness
+## Historical audit: RVB follow-up: production live-refresh harness
 
 The unrestricted run reached 241 seconds and stopped after 62 passes and one failing test;
 827 tests did not run. This is a red partial timing, never a successful full-gate benchmark.
@@ -188,7 +271,7 @@ exactly this marker at1554 and its summary at1576. No runner error was suppresse
 changed. Resolving the functional failure removes that early-stop notice on a green run.
 
 
-## Parallel safety
+## Historical audit: Parallel safety
 
 Reviewed against every root `e2e/*.spec.ts` and its local helper imports, plus the nine nested
 specs, on 2026-11-12 (VB). “Parallel / isolated” means the explicit read-only fixture above is
@@ -300,7 +383,7 @@ four project durations. Confirm page/console observations on the isolated ledger
 that the subsequent real serial ledger/history suites remain green. No browser/port was run here.
 
 
-## Diagnostic follow-up and response oracle audit
+## Historical audit: Diagnostic follow-up and response oracle audit
 
 The unrestricted `--no-bail` run at `35a9154b` took 474 s total: 5535 unit tests green, 461 browser
 passes, 4 failures, 425 not run (the 425 are exactly230 desktop +195 mobile serial cases). This
@@ -348,11 +431,158 @@ its real free-port/listener bind failed with `EPERM` (73 checks passed, 4 failed
 not green here and requires the unrestricted integrator. The changed gate/config scheduler
 regressions and the full 5538-test Vitest run are green; no product merge-queue code was changed.
 
-## Explicit serial inventory (DR-159)
+## Explicit execution inventory (DR-159)
 
-`e2e/serial-specs.json` now records each existing non-safe spec with its reason.
-Managed gates keep genuine ledger boot coverage, visual owns snapshots, and nested
-navigation covers real actions/extra contexts/races. Other specs retain serial
-because their transitive app/ledger writes lack an audited read-only boundary.
-This makes the existing complement explicit without promoting a spec or changing
-mobile selection. New/changed specs require a fresh classification review.
+`e2e/serial-specs.json` records the 12 canonical specs: visual snapshots, statistics with its Git
+seal, and ten wave-2 persistent-navigation specs. `isolated-specs.json` classifies the 24 moved
+writers plus the self-check. Both reason objects and the 35 read-only safe entries are disjoint;
+mobile exclusions still apply identically. Unknown specs retain serial and both-platform coverage.
+
+## Independent-review follow-up: legacy exit-21 stamp stability
+
+The real regression starts with a legacy-bootstrapped worktree: tracked launch/server-env rewrites,
+bootstrap skip-worktree flags, and no private e2e-port file. It runs the real queue, template verify
+and green-stamp, stubbing only toolchain commands. Before the fix the first queue exits 21 after a
+green gate, cleanup creates e2e-port, and the authorized second queue reports `e2e group` drift
+and repeats the full gate. This RED was reproduced in this worktree.
+
+The queue now calls bootstrap's narrow `--e2e-port-only` mode before stamp/gate evaluation. Existing
+valid port values are reused without probing/reselecting or rewriting unchanged files. Assertions
+for nested Mission Control and flat funko-tracker/personal-page-v2 prove one gate across both queue
+runs, second-run `[certified-tree]`, committed origin at the actual gate, private port present before
+that gate, unchanged port mtime/stamp, restored tracked bytes/index flags, and the authorized SHA
+landing at the synthetic main/origin. Existing tests still prove that a real private-port content
+change alters the fingerprint; the port input has not been excluded from certification.
+
+Follow-up verification (each suite invoked separately): port-precedence passes all three real queue
+cycles; worktree-bootstrap 66/66; merge-queue-certified-tree 12/12; committed-config environment
+preparation 6/6; post-rebase environment preparation 5/5; green-stamp-controls 12/12. Shell syntax
+and the two template/Mission Control mirrors are checked independently. No app code/TS changed.
+
+## Integrated phase-1/2 corpus follow-up
+
+The merged corpus found a real cleanup defect: the new private port was ignored protected state
+without a creator proof. Bootstrap now records its output hash in the external identity-bound
+manifest. Port-only preparation preserves valid earlier env-output proofs and never reblesses an
+unproven/edited port. Inventory and removal share the exact private-port exception; neighbours,
+owner changes, unproven files and session-registered protected paths remain protected.
+
+Deliberate test updates preserve their original safety intent:
+
+- `test-session-cleanup.mjs` checks no launch copy/hash because phase 2 intentionally stopped
+  producing it; explicit generator receipts and registration/removal checks remain.
+- `test-session-cleanup-adversarial.mjs` expects generated private port/env evidence while tracked
+  configs remain committed. Both cleanups must actually remove eligible proven output; edited or
+  unproven ports, neighbouring run files and protected registrations must retain/reject as before.
+- `test-merge-queue-review.sh` replaces the obsolete rewrite-only stub with the real port-aware
+  bootstrap. A hook canary rejects accidental full bootstrap; waiting state, required record,
+  certified retry, committed inputs and arbitrary owner-edit refusal remain covered.
+
+Verification uses `TMPDIR=/private/tmp/claude-501/p43tmp`, with each suite invoked separately:
+session cleanup 28/28, adversarial cleanup 26/26, queue-review 12/12, worktree-sweep 49/49,
+bootstrap 66/66, and the real legacy → exit-21 → certified-tree port cycle in all three synthetic
+topologies. Bash 3.2 syntax, Node syntax and the template/Mission Control bootstrap copy agree.
+The complete 120-suite engine corpus is left to the coordinator; no full-corpus result is claimed.
+
+## Deletion-safety follow-up: invalid Git-directory proof renewal
+
+A manifest with correct path, file identity and output hash but a wrong `gitdir` is invalid for
+cleanup. Both full and port-only bootstrap must keep it invalid as deletion evidence. The new
+adversarial regressions first prove cleanup rejects the original proof, run the actual bootstrap
+mode, then require unchanged port bytes, no renewed port hash, and actual cleanup retention.
+Both regressions failed before the fix. Ordinary and engine worktrees are covered.
+
+Bootstrap ownership and retention now align with cleanup's complete manifest guard, including
+regular/unaliased manifest and `.git` files, producer/version/path/identity, current real Git
+directory and generated-files schema. The overlay remains self-contained; no new shared-file
+installation contract or cleanup exception is introduced.
+
+Verification with `TMPDIR=/private/tmp/claude-501/p43tmp`, each suite invoked separately:
+`test-session-cleanup.mjs` 28 passed; `test-session-cleanup-adversarial.mjs` 28/28 passed;
+`test-worktree-sweep.mjs` 49 passed; `test-worktree-bootstrap.sh` 66 passed. Before the fix,
+the two new cases failed (26/28); after the fix both bootstrap modes retain the protected data.
+Bash/Node syntax and byte identity of the two bootstrap copies also pass.
+
+## Phase 2 handoff verification
+
+- `node plugin/scripts/test-e2e-tiers.mjs`: 79 checks green, including launcher copies and slot helper paths.
+- `bash plugin/scripts/test-playwright-port-precedence.sh`: all three synthetic topologies green;
+  also proves invocation controls do not alter the stamp while private port-file content does.
+- `PANDACORP_HOST_DIR=<temporary host> bash plugin/scripts/test-verify-gate-report.sh`: 112 passed.
+  The first run could not write the default host-state directory in this sandbox; the final run
+  uses an owned temporary host directory without altering the admission protocol.
+- `bash plugin/scripts/test-worktree-bootstrap.sh`: 66 passed.
+- `bash plugin/scripts/test-green-stamp-controls.sh`: 12 passed.
+- `test-template-e2e-conformance.mjs` with `PANDACORP_TEMPLATE_DEPS_DIR` pointing to the main
+  checkout: green, including three negative controls. Six edited template/project pairs match
+  byte-for-byte; five managed gate specs remain unchanged.
+- Biome from the main checkout: all 25 edited Mission Control TS/TSX files clean with explicit
+  project config; template config/launcher clean with VCS ignores disabled.
+- The navigation harness: 8 tests passed with the installed main-checkout Vitest and a temporary
+  Node-only config resolving that same Vitest package. This worktree has no installed dependencies;
+  its normal Vitest command cannot resolve React/Vitest. No dependency symlinks were created.
+- `bash -n`: all 11 edited shell files passed. `git diff --check`: green.
+- Classification audit: 72 current specs, complete/disjoint; safe 35/19, isolated 25/23, serial
+  12/12 desktop/mobile file selections. No full browser run or build was attempted. Three discovery
+  attempts with the external CLI could not resolve the missing local packages; production case
+  discovery and three full green timing runs remain the coordinator's external acceptance gate.
+- No commits, plugin/overlay version bumps, sibling-project edits or factory Git writes.
+
+## Phase 2 changed files of this worktree
+
+One repository-relative path per line. The inbox capture is ignored personal state; all other
+paths are reviewable implementation/documentation changes.
+
+```
+factory/decision-log.md
+factory/decisions/registry.yaml
+factory/memory/_inbox.md
+factory/standards/build-orchestration.md
+factory/standards/quality.md
+mission-control/.pandacorp/green-stamp.sh
+mission-control/.pandacorp/merge-queue.sh
+mission-control/.pandacorp/verify.sh
+mission-control/.pandacorp/worktree-bootstrap.sh
+mission-control/docs/decision-log.md
+mission-control/docs/reviews/e2e-platform-inventory.md
+mission-control/e2e/_ledger.ts
+mission-control/e2e/_slot.ts
+mission-control/e2e/achievements-statistics.spec.ts
+mission-control/e2e/backlog.spec.ts
+mission-control/e2e/commands.spec.ts
+mission-control/e2e/cuentas.reviewer.spec.ts
+mission-control/e2e/cuentas.spec.ts
+mission-control/e2e/frd-02-idea-page.reviewer.spec.ts
+mission-control/e2e/frd-02-s2a.reviewer.spec.ts
+mission-control/e2e/frd-04-11-s5c-gate.reviewer.spec.ts
+mission-control/e2e/frd-05-gate.reviewer.spec.ts
+mission-control/e2e/frd-14-snapshot-and-feedback.behaviour.spec.ts
+mission-control/e2e/frd-17-22-proposals.reviewer.spec.ts
+mission-control/e2e/ideas-board.spec.ts
+mission-control/e2e/isolated-specs.json
+mission-control/e2e/laneM-tablet.spec.ts
+mission-control/e2e/mobile-specs.json
+mission-control/e2e/navigation-root.reviewer.spec.ts
+mission-control/e2e/persistent-navigation.spec.ts
+mission-control/e2e/prod-server.mjs
+mission-control/e2e/proposals.spec.ts
+mission-control/e2e/resumen-fragua.reviewer.spec.ts
+mission-control/e2e/resumen.spec.ts
+mission-control/e2e/serial-specs.json
+mission-control/e2e/shell-sidebar.spec.ts
+mission-control/e2e/slot-self-check.spec.ts
+mission-control/playwright.config.ts
+mission-control/src/app/manual/manualPages.tsx
+mission-control/src/lib/navigation/_tests/parallel-safety-harness.test.ts
+plugin/docs/decision-log.md
+plugin/scripts/test-e2e-tiers.mjs
+plugin/scripts/test-playwright-port-precedence.sh
+plugin/scripts/test-verify-gate-report.sh
+plugin/scripts/test-worktree-bootstrap.sh
+plugin/templates/shared/.pandacorp/green-stamp.sh
+plugin/templates/shared/.pandacorp/merge-queue.sh
+plugin/templates/shared/.pandacorp/worktree-bootstrap.sh
+plugin/templates/stack-a-nextjs/e2e/playwright.config.ts
+plugin/templates/stack-a-nextjs/e2e/prod-server.mjs
+plugin/templates/stack-a-nextjs/verify.sh
+```

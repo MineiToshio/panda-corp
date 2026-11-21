@@ -143,22 +143,23 @@ def load(name):
     return json.loads((root / name).read_text())
 def warn(message):
     print('WARN DR-159: ' + message)
-if (root / 'parallel-safe.json').exists():
+if any((root / name).exists() for name in ['parallel-safe.json', 'isolated-specs.json', 'serial-specs.json']):
     try:
-        safe = load('parallel-safe.json')
+        safe = load('parallel-safe.json') if (root / 'parallel-safe.json').exists() else []
         serial = load('serial-specs.json') if (root / 'serial-specs.json').exists() else {}
+        isolated = load('isolated-specs.json') if (root / 'isolated-specs.json').exists() else {}
         if (not isinstance(safe, list) or any(not isinstance(x, str) for x in safe)
-                or not isinstance(serial, dict)
-                or any(not isinstance(v, str) or not v.strip() for v in serial.values())):
-            raise ValueError('expected parallel array and serial {spec: reason} object')
-        missing = sorted(set(specs) - set(safe) - set(serial))
+                or not isinstance(serial, dict) or not isinstance(isolated, dict)
+                or any(not isinstance(v, str) or not v.strip() for v in [*serial.values(), *isolated.values()])):
+            raise ValueError('expected parallel array and serial/isolated {spec: reason} objects')
+        missing = sorted(set(specs) - set(safe) - set(serial) - set(isolated))
         if missing:
             warn('unclassified parallel/serial specs (kept serial):\n  ' + '\n  '.join(missing)
-                 + '\n  Review transitive writes; update parallel-safe.json or serial-specs.json with reasons.')
-        overlap = sorted(set(safe) & set(serial))
+                 + '\n  Review transitive writes; update parallel-safe.json, isolated-specs.json or serial-specs.json with reasons.')
+        overlap = sorted((set(safe) & set(serial)) | (set(safe) & set(isolated)) | (set(serial) & set(isolated)))
         if overlap:
             warn('conflicting parallel/serial classifications: ' + ', '.join(overlap))
-        stale = sorted((set(safe) | set(serial)) - set(specs))
+        stale = sorted((set(safe) | set(serial) | set(isolated)) - set(specs))
         if stale:
             warn('stale parallel/serial entries: ' + ', '.join(stale))
     except (OSError, ValueError, TypeError) as error:
@@ -1317,10 +1318,43 @@ gate_playwright() {
   if [ -z "$SINCE" ] && [ -f e2e/prod-server.mjs ]; then
     node e2e/prod-server.mjs build || return $?
     export PANDACORP_E2E_SERVER=prod
+    # Ephemeral slot ports avoid adjacent worktree/lane ports. Hold all probes until selected;
+    # actual servers still fail closed if another process wins the interval after release.
+    if [ -f e2e/isolated-specs.json ]; then
+      PANDACORP_E2E_SLOT_PORTS="$(node --input-type=module <<'SLOTPORTS'
+import fs from 'node:fs';
+import net from 'node:net';
+const inventory = JSON.parse(fs.readFileSync('e2e/isolated-specs.json', 'utf8'));
+if (Object.keys(inventory).length) {
+  const count = process.env.PANDACORP_VERIFY_NO_BAIL === '1' ? 1 : Number(process.env.PANDACORP_E2E_WORKERS || 3);
+  if (!Number.isInteger(count) || count < 1) throw new Error('Invalid slot worker count');
+  const reserved = new Set([Number(process.env.PORT)]);
+  if (fs.existsSync('e2e/server-env.json')) reserved.add(Number(JSON.parse(fs.readFileSync('e2e/server-env.json', 'utf8')).PORT));
+  if (fs.existsSync('.pandacorp/run/e2e-port')) reserved.add(Number(fs.readFileSync('.pandacorp/run/e2e-port', 'utf8').trim()));
+  if (fs.existsSync('.pandacorp/run/lane.env')) {
+    const lane = fs.readFileSync('.pandacorp/run/lane.env', 'utf8').match(/^(?:export\s+)?PORT=(\d+)$/m);
+    if (lane) reserved.add(Number(lane[1]));
+  }
+  const servers = [], ports = [];
+  try {
+    while (ports.length < count) {
+      const server = net.createServer();
+      servers.push(server);
+      await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+      const port = server.address().port;
+      if (!reserved.has(port)) ports.push(port);
+    }
+    console.log(ports.join(','));
+  } finally { await Promise.all(servers.map(server => new Promise(resolve => server.close(resolve)))); }
+}
+SLOTPORTS
+)" || return $?
+      export PANDACORP_E2E_SLOT_PORTS
+    fi
   fi
   if [ -n "$SINCE" ]; then
     pnpm exec playwright test ${PLAYWRIGHT_REPORTERS[@]+"${PLAYWRIGHT_REPORTERS[@]}"} e2e/smoke.spec.ts e2e/shell.spec.ts
-  elif [ -f e2e/parallel-safe.json ]; then
+  elif [ -f e2e/parallel-safe.json ] || [ -f e2e/isolated-specs.json ]; then
     PANDACORP_E2E_TIER=combined pnpm exec playwright test ${PLAYWRIGHT_REPORTERS[@]+"${PLAYWRIGHT_REPORTERS[@]}"} e2e/
   else
     pnpm exec playwright test ${PLAYWRIGHT_REPORTERS[@]+"${PLAYWRIGHT_REPORTERS[@]}"} e2e/

@@ -2,10 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { FACTORY_ROOT } from "./_slot";
 
-const directory = path.resolve("e2e/fixtures/factory-root/factory/memory");
+const directory = path.join(FACTORY_ROOT, "factory/memory");
 function clearFixtures(): void {
-  const backlog = path.resolve("e2e/fixtures/factory-root/factory/backlog");
+  const backlog = path.join(FACTORY_ROOT, "factory/backlog");
   for (const file of fs.readdirSync(backlog)) {
     if (file.startsWith("BL-90") && file.endsWith(".md")) fs.unlinkSync(path.join(backlog, file));
   }

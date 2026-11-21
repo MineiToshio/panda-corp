@@ -9,21 +9,31 @@ printf 'phase: release\ndeploy_target: external\n' > "$APP/.pandacorp/status.yam
 git -C "$APP" add .; git -C "$APP" commit -qm launched
 mkdir -p "$WT/e2e"
 printf '{"PORT":0}\n' > "$WT/e2e/server-env.json"
-cat > "$WT/.pandacorp/worktree-bootstrap.sh" <<'BOOT'
+# Phase 2 intentionally prepares an ignored port before fingerprinting. Use the real bootstrap
+# rather than the old rewrite-only stub, whose ignored CLI argument hid tracked changes at start.
+cp "$QUEUE_FACTORY/plugin/templates/shared/.pandacorp/worktree-bootstrap.sh" "$WT/.pandacorp/"
+printf '{"name":"queue-review"}\n' > "$WT/package.json"
+printf 'node_modules/\n.env.local\n' >> "$WT/.gitignore"
+printf '#!/bin/bash\nmkdir -p node_modules\n' > "$WT/bin/pnpm"
+chmod +x "$WT/bin/pnpm"
+cat > "$WT/.pandacorp/worktree-setup.sh" <<'BOOT'
 #!/bin/bash
-printf '{"PORT":61999}\n' > e2e/server-env.json
-git update-index --skip-worktree e2e/server-env.json
+# This hook detects accidental full bootstrap during certification or exit-21 cleanup.
+touch .pandacorp/run/unexpected-full-bootstrap
 BOOT
+chmod +x "$WT/.pandacorp/worktree-setup.sh"
 chmod +x "$WT/.pandacorp/worktree-bootstrap.sh"
 git -C "$WT" add .; git -C "$WT" commit -qm 'bootstrap restoration fixture'
 run_queue
 expect test "$RC" = 21
+expect test ! -e "$WT/.pandacorp/run/unexpected-full-bootstrap"
 state=$(cd "$WT" && PATH="$WT/bin:$PATH" bash .pandacorp/merge-queue.sh --status)
 expect test "${state%%$'\n'*}" = certified-awaiting-order
-# The immediate attended retry must reuse the exact certificate, without bootstrap.
+# The immediate retry must reuse the certificate; narrow port preparation is allowed, full bootstrap is not.
 run_queue
 expect test "$RC" = 21
 expect grep -q 'SKIPPED.*certified-tree' "$FX/output"
+expect test ! -e "$WT/.pandacorp/run/unexpected-full-bootstrap"
 expect git -C "$WT" diff --quiet HEAD -- e2e/server-env.json
 expect bash -c '! git -C "$1" ls-files -v -- e2e/server-env.json | grep "^S "' _ "$WT"
 # Arbitrary tracked content must never be accepted as a certified bootstrap exception.

@@ -62,8 +62,8 @@ function bootstrapFixture(engine = false) {
   const pnpm=path.join(bin,'pnpm');writeFileSync(pnpm,'#!/bin/sh\nmkdir -p node_modules\n');
   spawnSync('chmod',['+x',pnpm]);
   f.bootEnv={...env,PATH:`${bin}:${process.env.PATH}`,PANDACORP_DISK_FREE_MB:'100000',PANDACORP_E2E_PORT:'39877',PANDACORP_CLEANUP_SESSION:''};
-  f.bootstrap=()=>{
-    const r=spawnSync('bash',[fileURLToPath(new URL('../templates/shared/.pandacorp/worktree-bootstrap.sh',import.meta.url))],{cwd:f.target,env:f.bootEnv,encoding:'utf8'});
+  f.bootstrap=(args=[])=>{
+    const r=spawnSync('bash',[fileURLToPath(new URL('../templates/shared/.pandacorp/worktree-bootstrap.sh',import.meta.url)),...args],{cwd:f.target,env:f.bootEnv,encoding:'utf8'});
     assert.equal(r.status,0,r.stderr);
   };
   f.bootstrap();
@@ -234,16 +234,73 @@ try {
       const r=await finish(session.root,{self:f.repo});assert.ok(r.kept.some(i=>i.path===f.wt),mode);
     }
   });
-  await probe('bootstrap provenance permits generated launch, server-env and env files in both cleanups', async () => {
+  await probe('bootstrap provenance permits private ports/env while tracked configs stay committed in both cleanups', async () => {
     for(const engine of [false,true]) {
       const f=bootstrapFixture(engine), session=await create(f.repo);roots.push(session.root);
+      // Phase 2 no longer creates launch/server-env overrides or their proof entries.
+      assert.equal(readFileSync(path.join(f.target,'.claude/launch.json'),'utf8'),git(f.target,'show','HEAD:.claude/launch.json'));
+      assert.equal(readFileSync(path.join(f.target,f.app,'e2e/server-env.json'),'utf8'),git(f.target,'show',`HEAD:${f.app}e2e/server-env.json`));
+      assert.ok(!git(f.target,'ls-files','-v').split('\n').some(line=>/^[Ss] /.test(line)));
+      const id=(await import('node:crypto')).createHash('sha256').update(f.target).digest('hex');
+      const proofPath=path.join(f.repo,'.pandacorp/run/worktrees',`bootstrap-${id}.json`);
+      const before=JSON.parse(readFileSync(proofPath,'utf8')).generated_files;
+      assert.deepEqual(Object.keys(before).sort(),[`${f.app}.env.local`,`${f.app}.pandacorp/run/e2e-port`].sort());
+      f.bootstrap(['--e2e-port-only']);
+      assert.deepEqual(JSON.parse(readFileSync(proofPath,'utf8')).generated_files,before,'port-only preparation preserves valid env provenance');
       await register(session.root,f.target);
       assert.equal((await verdict(f,f.target)).decision,'safe',`engine=${engine}`);
       const r=await finish(session.root,{self:f.repo});assert.ok(r.removed.some(i=>i.path===f.target));assert.ok(!existsSync(f.target));
     }
   });
+  for(const args of [[],['--e2e-port-only']]) {
+    await probe(`wrong gitdir cannot be renewed by ${args[0]||'full bootstrap'}`, async () => {
+      for(const engine of [false,true]) {
+        const f=bootstrapFixture(engine), session=await create(f.repo);roots.push(session.root);
+        const name=`${f.app}.pandacorp/run/e2e-port`, file=path.join(f.target,name);
+        const bytes=readFileSync(file);
+        const id=(await import('node:crypto')).createHash('sha256').update(f.target).digest('hex');
+        const proofPath=path.join(f.repo,'.pandacorp/run/worktrees',`bootstrap-${id}.json`);
+        const proof=JSON.parse(readFileSync(proofPath,'utf8'));
+        assert.equal(proof.generated_files[name],(await import('node:crypto')).createHash('sha256').update(bytes).digest('hex'));
+        proof.gitdir=path.join(f.root,'wrong-gitdir');
+        writeFileSync(proofPath,JSON.stringify(proof));
+        // Cleanup already rejects this otherwise-correct identity/hash proof. Neither bootstrap
+        // mode may turn it into authority to delete the existing file on a later cleanup.
+        assert.notEqual((await verdict(f,f.target)).decision,'safe','invalid before bootstrap');
+        f.bootstrap(args);
+        assert.deepEqual(readFileSync(file),bytes,'existing port bytes are preserved');
+        const after=JSON.parse(readFileSync(proofPath,'utf8'));
+        assert.ok(!Object.hasOwn(after.generated_files,name),'invalid proof must not be renewed with the current gitdir');
+        await register(session.root,f.target);
+        assert.notEqual((await verdict(f,f.target)).decision,'safe','still protected after bootstrap');
+        const r=await finish(session.root,{self:f.repo});
+        assert.ok(r.kept.some(i=>i.path===f.target));assert.ok(existsSync(file));
+      }
+    });
+  }
+  await probe('private port proof cannot bless owner edits, unproven files or neighbouring run state', async () => {
+    for(const engine of [false,true]) for(const mode of ['edited','unproven','neighbour']) {
+      const f=bootstrapFixture(engine), session=await create(f.repo);roots.push(session.root);
+      const name=`${f.app}.pandacorp/run/e2e-port`, file=path.join(f.target,name);
+      if(mode==='neighbour') writeFileSync(path.join(f.target,f.app,'.pandacorp/run/evidence'),'owner evidence');
+      else {
+        const id=(await import('node:crypto')).createHash('sha256').update(f.target).digest('hex');
+        const proofPath=path.join(f.repo,'.pandacorp/run/worktrees',`bootstrap-${id}.json`);
+        if(mode==='edited') writeFileSync(file,'39879\n');
+        else {const proof=JSON.parse(readFileSync(proofPath,'utf8'));delete proof.generated_files[name];writeFileSync(proofPath,JSON.stringify(proof));}
+        delete f.bootEnv.PANDACORP_E2E_PORT;
+        f.bootstrap(['--e2e-port-only']);
+        f.bootstrap();
+        assert.ok(!Object.hasOwn(JSON.parse(readFileSync(proofPath,'utf8')).generated_files,name),'rebootstrap cannot rebless an unproven port');
+        assert.equal(readFileSync(file,'utf8'),mode==='edited'?'39879\n':'39877\n');
+      }
+      await register(session.root,f.target);
+      assert.notEqual((await verdict(f,f.target)).decision,'safe',`${engine} ${mode}`);
+      const r=await finish(session.root,{self:f.repo});assert.ok(r.kept.some(i=>i.path===f.target));assert.ok(existsSync(f.target));
+    }
+  });
   await probe('later owner edits invalidate bootstrap hashes for both engine and ordinary worktrees', async () => {
-    for(const engine of [false,true]) for(const name of ['.claude/launch.json','e2e/server-env.json','.env.local']) {
+    for(const engine of [false,true]) for(const name of ['.claude/launch.json','e2e/server-env.json','.env.local','.pandacorp/run/e2e-port']) {
       const f=bootstrapFixture(engine), session=await create(f.repo);roots.push(session.root);
       await register(session.root,f.target);writeFileSync(path.join(f.target,name==='.claude/launch.json'?name:f.app+name),'owner edit after bootstrap');
       assert.notEqual((await verdict(f,f.target)).decision,'safe',`engine=${engine} ${name}`);
@@ -285,7 +342,7 @@ try {
     const f = fixture(), session = await create(f.repo); roots.push(session.root);
     const outside = path.join(f.root, 'outside.txt'); writeFileSync(outside, 'synthetic outside value');
     symlinkSync(outside, path.join(f.wt, 'generated-link'));
-    for (const relative of ['../outside.txt', outside, 'generated-link', '.git', '.pandacorp/run/evidence', 'factory/profile.md']) {
+    for (const relative of ['../outside.txt', outside, 'generated-link', '.git', '.pandacorp/run/evidence', '.pandacorp/run/e2e-port', 'factory/profile.md']) {
       await assert.rejects(() => register(session.root, f.wt, { generatedFiles: [relative] }), /generated output|non-protected|inside/i);
     }
   });

@@ -2,10 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { FACTORY_ROOT } from "./_slot";
 
 // Seed tablet cases independently of owner data; restore exact fixture bytes after this spec.
-const project = path.resolve("e2e/fixtures/factory-root/mission-control");
-const portfolio = path.resolve("e2e/fixtures/factory-root/factory/portfolio.md");
+const project = path.join(FACTORY_ROOT, "mission-control");
+const portfolio = path.join(FACTORY_ROOT, "factory/portfolio.md");
 const sources = new Map([
   [
     portfolio,

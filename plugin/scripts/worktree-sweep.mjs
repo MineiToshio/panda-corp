@@ -187,7 +187,7 @@ function bootstrapFiles(wt, mainWt) {
         data.identity !== `${st.dev}:${st.ino}:${st.birthtimeMs}` || !gd.ok || data.gitdir !== real(gd.out) ||
         !data.generated_files || typeof data.generated_files !== 'object' || Array.isArray(data.generated_files)) return {};
     return Object.fromEntries(Object.entries(data.generated_files).filter(([name, hash]) =>
-      /^(?:\.claude\/launch\.json|(?:[^/]+\/)?(?:e2e\/server-env\.json|\.env\.local))$/.test(name) &&
+      /^(?:\.claude\/launch\.json|(?:[^/]+\/)?(?:e2e\/server-env\.json|\.env\.local|\.pandacorp\/run\/e2e-port))$/.test(name) &&
       typeof hash === 'string' && /^[a-f0-9]{64}$/.test(hash)));
   } catch { return {}; } // No provenance is never permission to discard a hidden difference.
 }
@@ -208,12 +208,17 @@ export function bootstrapOwnedUnchanged(worktree) {
   } catch { return new Set(); }
 }
 const protectedRelative = name => /(^|\/)(\.git|\.pandacorp)(\/|$)|(^|\/)factory\/(ideas|memory|profile\.md|portfolio\.md)(\/|$)/.test(name);
-function hashMatches(wt, name, expected) {
+const privatePortRelative = name => /^(?:[^/]+\/)?\.pandacorp\/run\/e2e-port$/.test(name);
+function hashMatches(wt, name, expected, privatePort = false) {
   if (typeof expected !== 'string' || !/^[a-f0-9]{64}$/.test(expected)) return false;
   const file = path.resolve(wt, name);
-  return within(file, wt) && file !== wt && !protectedRelative(name) && real(file) === file && lstatSync(file).isFile() &&
+  return within(file, wt) && file !== wt && (!protectedRelative(name) || (privatePort && privatePortRelative(name))) && real(file) === file && lstatSync(file).isFile() &&
     createHash('sha256').update(readFileSync(file)).digest('hex') === expected;
 }
+
+// Inventory and removal share this exact exception; a raw owner-state count must not
+// veto the same identity/hash-proven runtime file that the removal predicate accepts.
+const ownedPrivatePort = (wt, name, bootstrap) => privatePortRelative(name) && hashMatches(wt, name, bootstrap[name], true);
 
 // ONE dirty/hidden/protected-state predicate for ALL worktrees, used by sweep and finish.
 // Session receipts can prove ignored generated outputs; hidden tracked differences additionally
@@ -246,9 +251,11 @@ function worktreeCleanReason(wt, { bootstrap = {}, generated = {}, disposableIgn
     if (disposableIgnored) ignored.out = '';
     const caches = /(^|\/)(node_modules|\.next|\.next-fidelity|dist|build|coverage|\.cache|\.turbo|test-results)(\/|$)/;
     for (const name of ignored.out.split('\0').filter(Boolean)) {
-      // In particular, .pandacorp/run in an ordinary worktree is owner state too.
-      if (protectedRelative(name)) return 'owner-state';
-      if (!caches.test(name) && !hashMatches(wt, name, bootstrap[name]) && !hashMatches(wt, name, generated[name])) return 'unclassified-ignored-files';
+      // Only the exact private port with identity-bound bootstrap evidence is disposable.
+      // Session registrations cannot authorize protected state, nor can a neighbouring run file.
+      const ownedPort = ownedPrivatePort(wt, name, bootstrap);
+      if (protectedRelative(name) && !ownedPort) return 'owner-state';
+      if (!ownedPort && !caches.test(name) && !hashMatches(wt, name, bootstrap[name]) && !hashMatches(wt, name, generated[name])) return 'unclassified-ignored-files';
       const file = path.join(wt, name);
       let dir = lstatSync(file).isDirectory() ? file : path.dirname(file);
       while (dir !== wt && within(dir, wt)) {
@@ -387,7 +394,8 @@ export async function scan(repo, selfDir = process.cwd(), alsoList = [], { gener
     const info = commitInfo(mainWt, rev, def);
     const st = git(w.path, ["status", "--porcelain", "--untracked-files=normal"]);
     const uncommitted = st.ok ? st.out.split("\n").filter(Boolean).length : -1;
-    const ownerState = git(w.path, ["ls-files", "-o", "-i", "--exclude-standard", "--", ...OWNER_STATE_SPECS]).out.split("\n").filter(Boolean);
+    const bootstrap = bootstrapFiles(w.path, mainWt);
+    const ownerState = git(w.path, ["ls-files", "-o", "-i", "--exclude-standard", "--", ...OWNER_STATE_SPECS]).out.split("\n").filter(name => name && !ownedPrivatePort(w.path, name, bootstrap));
     const nested = allPaths.filter((o) => o !== p && within(o, p));
     const idleHours = Math.min(info.ageHours, hoursSince(path.join(git(w.path, ["rev-parse", "--absolute-git-dir"]).out, "logs", "HEAD")));
     const recent = idleHours < STALE_HOURS && !also.has(w.branch) && !also.has(p);

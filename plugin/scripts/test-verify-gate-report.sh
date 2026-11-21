@@ -992,6 +992,24 @@ root=pathlib.Path(sys.argv[1]); specs=sorted(p.relative_to(root/'e2e').as_posix(
 PY159
 out=$(run_verify "$FX" --only=tsc 2>&1)
 if ! echo "$out" | grep -q 'WARN DR-159'; then ok '(DR-159) classified specs are quiet'; else bad '(DR-159) classified specs warned' "$out"; fi
+# A third tier classifies writers without making them read-only; overlaps stay visible.
+python3 - "$FX" <<'PYISOLATED'
+import json, pathlib, sys
+root=pathlib.Path(sys.argv[1])/'e2e'
+serial=json.loads((root/'serial-specs.json').read_text())
+serial.pop('nested/new.spec.ts')
+(root/'serial-specs.json').write_text(json.dumps(serial))
+(root/'isolated-specs.json').write_text(json.dumps({'nested/new.spec.ts':'Worker-local fixture writes'}))
+PYISOLATED
+out=$(run_verify "$FX" --only=tsc 2>&1)
+if ! echo "$out" | grep -q 'WARN DR-159'; then ok '(DR-159) isolated classification is quiet'; else bad '(DR-159) isolated spec warned' "$out"; fi
+printf '{"smoke.spec.ts":"Conflicts with safe"}' > "$FX/e2e/isolated-specs.json"
+out=$(run_verify "$FX" --only=tsc 2>&1)
+if echo "$out" | grep -q 'conflicting parallel/serial classifications: smoke.spec.ts'; then ok '(DR-159) isolated/safe overlap warns'; else bad '(DR-159) isolated/safe overlap was missed' "$out"; fi
+printf '{"visual.spec.ts":"Conflicts with serial"}' > "$FX/e2e/isolated-specs.json"
+out=$(run_verify "$FX" --only=tsc 2>&1)
+if echo "$out" | grep -q 'conflicting parallel/serial classifications: visual.spec.ts'; then ok '(DR-159) isolated/serial overlap warns'; else bad '(DR-159) isolated/serial overlap was missed' "$out"; fi
+rm -f "$FX/e2e/isolated-specs.json"
 rm -f "$FX/e2e/parallel-safe.json" "$FX/e2e/mobile-specs.json" "$FX/e2e/serial-specs.json"
 out=$(run_verify "$FX" --only=tsc 2>&1)
 if ! echo "$out" | grep -q 'WARN DR-159'; then ok '(DR-159) no inventories preserves legacy quiet behavior'; else bad '(DR-159) non-opted project warned' "$out"; fi

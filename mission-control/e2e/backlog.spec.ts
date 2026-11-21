@@ -2,8 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { FACTORY_ROOT } from "./_slot";
 
-const fixtures = path.resolve("e2e/fixtures/factory-root/factory/backlog");
+const fixtures = path.join(FACTORY_ROOT, "factory/backlog");
 const items = [
   { id: "BL-9001", severity: "p0", area: "hooks", title: "S3C urgent hook" },
   { id: "BL-9002", severity: "p1", area: "plugin-skill", title: "S3C important skill" },

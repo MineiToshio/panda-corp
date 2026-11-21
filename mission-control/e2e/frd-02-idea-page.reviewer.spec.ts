@@ -3,13 +3,14 @@ import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { FACTORY_ROOT } from "./_slot";
 
 /**
  * WO-02-016 gate spec (reviewer, DR-080): the idea page in a real browser on both viewports,
  * including the bounded writes the builder's spec stops short of. Viewport-specific assertions
  * read the running project's width, so a correct build passes on desktop and mobile alike.
  */
-const IDEAS = path.resolve("e2e/fixtures/factory-root/factory/ideas");
+const IDEAS = path.join(FACTORY_ROOT, "factory/ideas");
 const READY = { selector: '[data-testid="idea-page"]' };
 
 function isPhone(page: Page): boolean {

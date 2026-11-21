@@ -2,8 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { FACTORY_ROOT } from "./_slot";
 
-const statusFile = path.resolve("e2e/fixtures/factory-root/mission-control/.pandacorp/status.yaml");
+const statusFile = path.join(FACTORY_ROOT, "mission-control/.pandacorp/status.yaml");
 const originalStatus = fs.readFileSync(statusFile, "utf8");
 test.beforeEach(() => {
   fs.writeFileSync(statusFile, originalStatus);

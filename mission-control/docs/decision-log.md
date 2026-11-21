@@ -1,5 +1,45 @@
 # Decision Log — Mission Control
 
+## 2026-11-21 - Reject invalid Git-directory bootstrap ownership
+
+The bootstrap mirror now applies cleanup's complete manifest validity checks before renewing
+output provenance, including the real `gitdir`. Full and port-only bootstrap must preserve an
+existing port with invalid provenance without granting permission to remove its worktree.
+The template and Mission Control copies remain byte-identical; no app behavior changes.
+
+## 2026-11-21 - Preserve cleanup provenance for the private worktree port
+
+The mirrored bootstrap now records identity/hash-bound private-port provenance, including narrow
+queue preparation, while preserving valid earlier env-output evidence. The shared factory cleanup
+accepts only that exact proven port; edited or unproven ports and neighbouring protected state
+still retain the worktree. Launch/server-env files remain untouched and receive no generated-output
+claims. The [inventory review](reviews/e2e-platform-inventory.md) records the integrated corpus fix.
+
+## 2026-11-21 - Keep legacy exit-21 certificates reusable
+
+The mirrored queue/bootstrap now create a missing worktree-private e2e port before fingerprinting
+and preserve existing port files without rewriting unchanged values. The file remains a binding
+stamp input. This fixes independent review's legacy-bootstrap → green gate → exit 21 → unnecessary
+second full gate. The [review inventory](reviews/e2e-platform-inventory.md) records the behavioral
+regression through the real machinery, including the nested Mission Control topology.
+
+## 2026-11-21 - DR-158 amendment: isolate wave-1 fixture writers (proposal 43 phase 2)
+
+[Reviewed inventory](reviews/e2e-platform-inventory.md) admits 24 existing specs plus one slot
+self-check to `desktop-isolated`/`mobile-isolated`. Three owned servers reuse the production build
+with fresh Git-visible working-tree fixtures under `test-results/e2e-slots/<i>/`, matching each
+worker's baseURL and mutation paths. Canonical read-only projects retain their network/fs guard;
+serial desktop/mobile wait for all four parallel projects. Visual, statistics and wave-2 persistent
+navigation stay canonical/serial. Statistics preserves working-tree events and pre-existing store
+state, removing only its own empty directory. The harness audits transitive slot boundaries.
+
+Template-first port precedence now uses ignored worktree state without tracked file rewrites or
+skip-worktree flags. The queue pins committed-origin identity; slot ports are probed and excluded
+as invocation controls. No case assertions were weakened; the new self-check retains both platforms.
+The checked-in case table is historical; full production discovery/timing and three green full gates
+remain external validation. Template versions are intentionally left to the coordinating phase-1/2
+merge. Factory machinery is changed directly under LESSON-0675, outside the engine being changed.
+
 ## 2026-11-21 - Pandacorp overlay upgraded 9.2.0 -> 9.6.2
 
 Compatible bump. Regenerated `.pandacorp/guide.md` and the managed `AGENTS.md` block; installed

@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
@@ -7,16 +6,20 @@ import type { StatsFactory } from "../src/lib/achievements/read-model/statsSchem
 import { gotoHydrated } from "./_hydration";
 
 const eventsFile = path.resolve("e2e/fixtures/factory-root/events.ndjson");
-const canonicalEvents = execFileSync(
-  "git",
-  ["show", "HEAD:mission-control/e2e/fixtures/factory-root/events.ndjson"],
-  { encoding: "utf8" },
-);
+// Preserve working-tree fixture edits: HEAD is not the input under test.
+const canonicalEvents = fs.readFileSync(eventsFile, "utf8");
 const fixtureRoot = path.resolve("e2e/fixtures/factory-root");
 const storePath = path.join(fixtureRoot, ".pandacorp/stats-factory.json");
+const storeDir = path.dirname(storePath);
+const hadStoreDir = fs.existsSync(storeDir);
+const previousStore = fs.existsSync(storePath) ? fs.readFileSync(storePath) : null;
 function restoreFixtures(): void {
   fs.writeFileSync(eventsFile, canonicalEvents);
-  if (fs.existsSync(storePath)) fs.unlinkSync(storePath);
+  if (previousStore) fs.writeFileSync(storePath, previousStore);
+  else if (fs.existsSync(storePath)) fs.unlinkSync(storePath);
+  // Remove only the empty directory this spec created, never pre-existing fixture state.
+  if (!hadStoreDir && fs.existsSync(storeDir) && fs.readdirSync(storeDir).length === 0)
+    fs.rmdirSync(storeDir);
 }
 function seedFactoryStore(emptyTransitions = false): void {
   const previousRoot = process.env.PANDACORP_FACTORY_ROOT;

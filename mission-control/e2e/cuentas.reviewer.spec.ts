@@ -2,8 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { FACTORY_ROOT } from "./_slot";
 
-const root = path.resolve("e2e/fixtures/factory-root");
+const root = FACTORY_ROOT;
 const catalog = path.join(root, "factory/services/catalog.yaml");
 const accounts = path.resolve(root, "../pandacorp-vault/services/accounts.yaml");
 const recipe = {

@@ -6,8 +6,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { FACTORY_ROOT } from "./_slot";
 
-const PROJECT = path.resolve("e2e/fixtures/factory-root/mission-control");
+const PROJECT = path.join(FACTORY_ROOT, "mission-control");
 const CHANGES = path.join(PROJECT, ".pandacorp/inbox/changes");
 const DONE = path.join(CHANGES, "done");
 const CHANGES_URL = "/portfolio/mission-control/changes";

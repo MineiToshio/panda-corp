@@ -47,6 +47,7 @@
     "resumen.spec.ts",
     "shell-sidebar.spec.ts",
     "smoke.spec.ts",
+    "slot-self-check.spec.ts",
     "tokens.spec.ts",
     "visual-system.spec.ts",
     "visual.spec.ts",

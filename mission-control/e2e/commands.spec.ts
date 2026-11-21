@@ -2,8 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { FACTORY_ROOT } from "./_slot";
 
-const changes = path.resolve("e2e/fixtures/factory-root/mission-control/.pandacorp/inbox/changes");
+const changes = path.join(FACTORY_ROOT, "mission-control/.pandacorp/inbox/changes");
 const fixture = path.join(changes, "s5c-commands-target.md");
 const fixtureBody = "---\ntype: change\nstatus: ready\n---\n# Commands target fixture\n";
 

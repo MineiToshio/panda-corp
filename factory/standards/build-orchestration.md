@@ -252,7 +252,8 @@ to change code, encoded as a standing rule in the **project overlay** (`CLAUDE.m
 A worktree checks out **tracked files only**; everything else must be reconstituted, cheaply:
 
 - Run **`.pandacorp/worktree-bootstrap.sh`**. It reuses dependencies only with matching lockfile content and compatible platform/runtime, trying `pnpm install --offline --frozen-lockfile` before a frozen online install. Dependencies use pnpm's shared store; never symlink `node_modules` across worktrees. Build output stays per-worktree. The disk floor and post-gate output cleanup are implemented by `plugin/templates/shared/.pandacorp/{worktree-bootstrap,merge-queue}.sh`.
-- **`launch.json` on autoPort** (below) — generated per worktree, named `*-<slug>`.
+- **Private browser port** — written to ignored `.pandacorp/run/e2e-port`; bootstrap preserves
+  tracked `e2e/server-env.json` and `.claude/launch.json` bytes and creates no index flags.
 - **Secrets** need no copy: they live **outside any repo** (SOPS+age, `~/.config/pandacorp/`,
   `external-services.md`), so the worktree runs the same `sops exec-env` as the main checkout.
 - **External data is referenced, owned state is isolated.** Mission Control is stateless — it points
@@ -573,7 +574,18 @@ overlay (`guide.md.tpl`, the self-isolation + conversation-isolation rules); `do
 
 **Engine checkouts.** Runtime removal at landing, finish, stop and attempt replacement belongs to BUILD-9/BUILD-15; pending work remains recoverable on its retained branches. The separate sweeper uses `plugin/scripts/worktree-sweep.mjs:115` (`engineRoot`) and `:275` (`scan`) to recognize eligible terminal run worktrees, including the run-layer carve-out, and `:391` (`cleanEngineWorktrees`) to reclaim them. It preserves live ownership, suspended/non-terminal runs and `waiting_gate`, process cwds, locked/deployed/nested worktrees, dirty files and unknown owner data. Its terminal-tree carve-out can remove a clean unmerged checkout while preserving its branch; this never means the work landed. Do not apply ordinary session ancestry rules as a claim that every engine branch is merged. Follow the current CLI lifecycle for which waiting checkouts must remain, rather than manually deleting them.
 
-**One cleanliness predicate.** Hidden assume-unchanged/skip-worktree flags are not proof of cleanliness. Compare tracked content against HEAD; only validated bootstrap provenance may explain a reproducible skip-worktree override. Ignored files must be known generated caches or exact generated files with unchanged SHA-256 receipts (`register --generated-file`). Preexisting private dotenv and owner-state files are never made disposable by bootstrap. `worktreeCleanReason` in `plugin/scripts/worktree-sweep.mjs:169` supplies the shared check. An unknown file or missing provenance preserves the tree. Never recursively remove `.pandacorp/`, its parent state layer or an archive containing owner records.
+**One cleanliness predicate.** Hidden assume-unchanged/skip-worktree flags are not proof of cleanliness. Compare tracked content against HEAD; only validated bootstrap provenance may explain a reproducible skip-worktree override. Ignored files must be known generated caches or exact generated files with unchanged SHA-256 receipts (`register --generated-file`). The exact ignored `.pandacorp/run/e2e-port` (or nested project equivalent) is reclaimable only
+with external bootstrap provenance bound to that checkout identity and the unchanged file hash.
+The inventory and removal predicate share that same exception; sibling run files, an unproven
+port, owner edits and protected paths registered through a session receipt still prevent removal.
+Port-only preparation records its own output proof and preserves still-valid sibling proofs;
+rebootstrap never promotes an already-unproven port. A manifest is trusted only when it is a
+regular unaliased file, its producer/version/path and regular `.git` file identity match, its
+`gitdir` equals the current real Git directory, and its generated-files map has the expected
+object shape. Bootstrap ownership checks and proof retention enforce the same complete boundary
+as cleanup: an invalid `gitdir` cannot be repaired into renewed deletion authority, even when
+path, inode identity and content hashes match. Preexisting private dotenv and owner-state
+files are never made disposable by bootstrap. `worktreeCleanReason` in `plugin/scripts/worktree-sweep.mjs` supplies the shared check. An unknown file or missing provenance preserves the tree. Never recursively remove `.pandacorp/`, its parent state layer or an archive containing owner records.
 
 **Capability and completion.** Cleanup requires write access to shared git metadata and worktree parents. A restricted worker hands its files back to the capable coordinator; it never changes sandbox mode or protections, clears index.lock/HEAD.lock, or calls EPERM a stale lock. `session-cleanup.mjs run --repo <repo> -- <command> ...` provides an owned temp/cache environment and cleanup in finally; tool-driven sessions explicitly create/register/finish even on partial/error exits. A child shell cannot change the harness cwd.
 
@@ -593,7 +605,21 @@ Removal may take minutes: use a resumable tool process, report progress at least
 [Quality: verification cost](quality.md#verification-cost-without-weaker-certification-dr-158)
 owns the execution policy: full G3 before main; fail-fast with diagnostic replay; one kernel
 verification owner per checkout (contention is infrastructure); fingerprint-bound certified-tree
-reuse; one production artifact/server, explicit mobile coverage and audited parallel-safe specs.
+reuse; one production artifact, owned canonical/optional worker-slot servers, explicit mobile coverage
+and audited read-only/isolated specs. Bootstrap writes the private port only to ignored
+`.pandacorp/run/e2e-port`; it never rewrites `e2e/server-env.json` or `.claude/launch.json` or sets
+index flags. Manual precedence is private file → engine `lane.env` → committed JSON → shell/default.
+The queue exports `PANDACORP_E2E_COMMITTED_PORT=1` before stamp/gate evaluation to pin the committed
+origin, retaining restoration of older bootstrap-owned skip-worktree entries. Before that evaluation it
+calls bootstrap's `--e2e-port-only` mode: a legacy worktree gets its private file before the start
+fingerprint, without dependency installs, hooks, dotenv writes or cleanup-session registration.
+That narrow mode still records external, identity/hash-bound bootstrap output provenance for
+the private port and retains valid earlier environment-output proofs.
+Bootstrap retains an existing valid port, even when busy, and does not rewrite the same value;
+exit-21 cleanup therefore cannot introduce/change that certified input. The private file remains
+fingerprinted, so real content changes still force verification. Slot port selection
+uses `PANDACORP_E2E_SLOT_PORTS`, an invocation control alongside the queue port switch.
+Verification: `test-playwright-port-precedence.sh` uses synthetic nested/flat project topologies.
 `--no-bail` browser diagnostics omit success dependencies and use one global worker so every
 project runs after test failures without reader/writer overlap. Certification retains the ordered
 3-worker safe tier and fail-fast dependency chain. Both modes keep one browser invocation.

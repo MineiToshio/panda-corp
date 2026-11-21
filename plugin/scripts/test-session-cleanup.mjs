@@ -55,7 +55,10 @@ try {
   const boot=spawnSync('bash',['.pandacorp/worktree-bootstrap.sh'],{cwd:bootWt,encoding:'utf8',env:{...env,PANDACORP_CLEANUP_SESSION:bootSession.root,PANDACORP_PLUGIN_ROOT:plugin}});
   check(boot.status===0,`real bootstrap registers without manual call: ${boot.stderr}`);
   const bootReceipt=JSON.parse(readFileSync(path.join(bootSession.root,'session.json'),'utf8'));
-  check(Boolean(bootReceipt.worktrees[0]?.generatedFiles['.claude/launch.json']),'bootstrap records only its generated launch output hash');
+  // Phase 2 deliberately stopped copying/rewriting launch.json. A receipt must never claim
+  // a file this bootstrap did not produce; explicit generator receipts above remain reclaimable.
+  check(!existsSync(path.join(bootWt,'.claude/launch.json')),'bootstrap leaves the main checkout launch config uncopied');
+  check(Object.keys(bootReceipt.worktrees[0]?.generatedFiles||{}).length===0,'bootstrap does not record an unproduced launch output hash');
   const bootDone=await finish(bootSession.root,{self:repo});check(bootDone.artifactsRemoved&&!existsSync(bootWt),'real bootstrapped merged worktree is reclaimed through canonical engine');
   // DSWEEP: finish discovers only narrowly engine-owned terminal worktrees in its repository.
   const engine = path.join(repo, '.pandacorp/run/build');

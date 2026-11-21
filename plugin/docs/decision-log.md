@@ -1,5 +1,82 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-21 - Reject wrong-gitdir proofs in both bootstrap modes
+
+Independent review found bootstrap could renew a manifest cleanup rejected: ownership checked
+path/identity/hash but omitted `gitdir`. The standalone bootstrap now checks the real current
+Git directory and the complete regular-file/schema/identity boundary before accepting ownership;
+port-only retention applies the same full checks. No cleanup permission is relaxed.
+A shared import would add an installed-overlay dependency to the standalone script, so this
+minimal repair aligns the guards and pins parity through real behavioral regressions instead.
+
+The adversarial suite corrupts only gitdir while keeping path, identity and hash correct. Both
+full bootstrap and `--e2e-port-only` failed RED before the fix; after either mode, the port must
+remain unchanged, absent from renewed output claims, and retained by actual cleanup. Both ordinary
+and engine worktrees are covered. Contract: [build orchestration](../../factory/standards/build-orchestration.md).
+
+## 2026-11-21 - Repair phase-1/2 cleanup and queue-test integration
+
+The integrated engine corpus exposed missing provenance for the new ignored private port.
+Bootstrap now records that exact output's hash outside the checkout, including port-only queue
+preparation. That narrow path preserves still-valid earlier env proofs; an existing unproven or
+owner-edited port cannot gain a new cleanup permission through rebootstrap. Sweep inventory and
+removal share the same identity/hash-checked private-port exception, while arbitrary protected
+run state and session-registered protected paths remain non-disposable.
+
+Two obsolete test expectations are amended deliberately: bootstrap no longer copies/generates
+launch.json, and queue preparation now calls a narrow port-only mode. The session test checks
+that no unproduced launch hash is claimed, preserving explicit generator-registration tests.
+The queue-review test uses the real bootstrap instead of a rewrite-only stub that ignored the
+new flag; a project-hook canary detects accidental full bootstrap. Its required record, waiting
+status, certified retry and arbitrary tracked-edit rejection checks remain intact. The adversarial
+suite verifies actual deletion for proven port/env outputs in both engine and ordinary checkouts,
+and retention for edited/unproven ports, neighbouring run state and protected-path registrations.
+
+Canonical safety contract: [build orchestration](../../factory/standards/build-orchestration.md).
+No version bump; tests use the coordinator's TMPDIR and disposable repositories only.
+
+## 2026-11-21 - Integrate phase-2 overlay with phase-1 certification
+
+Plugin **10.18.4** / overlay **9.8.0** retain required-record receipts, unit diagnosis and JSON
+outcomes alongside isolated-slot port probing/export. Mission Control mirrors the resolved
+verify, queue and stamp helpers; controls retain both phases. Bootstrap copies already agree.
+The [phase-2 queue contract](../../factory/standards/build-orchestration.md) remains intact.
+
+## 2026-11-21 - Preserve legacy port inputs across exit-21 certification
+
+Independent review reproduced a legacy worktree's missing private port file being created by
+post-gate bootstrap, invalidating the just-recorded stamp. The queue now prepares it before
+stamp/gate evaluation using bootstrap's narrow `--e2e-port-only` mode. That mode skips dependency
+installs, hooks, dotenv writes and cleanup-session registration. Existing valid ports are retained;
+unchanged values are never rewritten. The private port stays in the fingerprint: this fix preserves
+binding of real inputs rather than excluding them.
+
+[Queue contract](../../factory/standards/build-orchestration.md) and the
+[Mission Control inventory](../../mission-control/docs/reviews/e2e-platform-inventory.md) record the
+amendment. `test-playwright-port-precedence.sh` now drives the real queue, verify and stamp in
+three synthetic project topologies with only toolchain commands stubbed. Legacy tracked rewrites
+and skip-worktree flags lead to one green gate, exit 21, then an authorized certified-tree landing
+without a second gate; assertions check actual origins, restored bytes/flags, port mtime, stamp and
+local origin SHA. The old implementation failed this regression by running the gate twice.
+
+## 2026-11-21 - Proposal 43 phase 2: worker fixture slots and private worktree ports
+
+DR-158 now permits a reviewed `isolated-specs.json` tier in the byte-identical Stack A Playwright
+config: owned canonical plus N slot servers from one artifact, per-parallelIndex baseURL, explicit
+port validation, mobile exclusions, four parallel predecessors and serial fallback for dev/since.
+The production seed copies Git-visible working fixture bytes, rejects links, and relocates all
+fixture env roots. The full gate probes distinct slot ports; the DR-159 audit includes all three
+inventories. No inventory preserves existing selection.
+
+[Bootstrap](../templates/shared/.pandacorp/worktree-bootstrap.sh) writes ignored run/e2e-port only,
+without launch/server-env edits or new index flags; lane ports outrank committed JSON. The queue
+exports `PANDACORP_E2E_COMMITTED_PORT=1` before stamp/gate evaluation, retaining legacy restoration.
+Green-stamp fingerprints private port input and treats the queue switch/slot ports as controls.
+Contracts: [quality](../../factory/standards/quality.md), [orchestration](../../factory/standards/build-orchestration.md),
+[DR-158](../../factory/decisions/registry.yaml). Tests: test-e2e-tiers.mjs,
+test-playwright-port-precedence.sh, test-worktree-bootstrap.sh and test-verify-gate-report.sh.
+Version bumps and external sibling upgrades are coordinator-owned after merging phase 1.
+
 ## 2026-11-21 - Align full-corpus fixtures with phase-1 certification and push proof
 
 Plugin **10.18.3**, overlay unchanged **9.7.2**. Full-corpus review exposed two stale
@@ -792,6 +869,21 @@ becomes the only engine at 10.0.0 (R2); nothing in the default path changes exce
 
 Engine modules split into sibling folders (pure refactor, same exports); every module under 500 lines.
 
+## v9.156.0 — 2026-11-12 (MINOR): decision card v2, lettered options (CONV-20, DR-148 addendum)
+
+**What:** overlay **8.123.0**. The owner-facing decision card changes shape: Contexto is one punctual paragraph for a
+novice, options are lettered A/B/C/D (each may carry its own context), and the recommendation is "Recomendada: [letter]".
+[AGENTS.md.tpl](../templates/shared/AGENTS.md.tpl) and the project [guide](../templates/shared/.pandacorp/guide.md.tpl)
+carry the short form (canonical text and example: `factory/standards/conventions.md` CONV-20). The
+[inbox template](../templates/docs/decisions-inbox-template.md) keeps the field names Mission Control and
+[decide](../skills/decide/SKILL.md) read and asks for lettered options and "Recomendada: [letra]". Architecture
+[decision-round.md](../skills/architecture/references/decision-round.md) brief example is now lettered bullets instead of a
+table; `learn` and `worktrees` one-liners updated. No skill hardcodes the old "Alternativas" shape any more (grep clean
+outside dated history). Version skips 9.155.0, reserved by the separate engine branch (which shipped later as 9.157.0 after merging this change).
+
+**Why:** owner request 2026-11-12. Existing projects get the new `AGENTS.md` text through `/pandacorp:upgrade` (overlay
+8.123.0, compatible bump: silent on their next skill preflight).
+
 ## 2026-11-11 (documentation stage of v9.157.0): build engine v2 documentation and registry (DR-150..DR-153), revision 2
 
 **What:** the canonical documents of the `pandacorp-build` CLI land before any code: the standard
@@ -818,21 +910,6 @@ are regenerated from the three agents.
 **Why:** docs first. v2 is reached only by the owner's keyword `implement v2`; nothing here changes what the default
 `/pandacorp:implement` does, apart from the freeze. The new vocabulary names must exist before the CLI emits them or Mission
 Control shows them as `legacy.*`. The version bump, the manifests and the release note are in the 9.157.0 entry above. Factory-side rationale: [decision-log](../../factory/decision-log.md) (2026-11-11).
-
-## v9.156.0 — 2026-11-12 (MINOR): decision card v2, lettered options (CONV-20, DR-148 addendum)
-
-**What:** overlay **8.123.0**. The owner-facing decision card changes shape: Contexto is one punctual paragraph for a
-novice, options are lettered A/B/C/D (each may carry its own context), and the recommendation is "Recomendada: [letter]".
-[AGENTS.md.tpl](../templates/shared/AGENTS.md.tpl) and the project [guide](../templates/shared/.pandacorp/guide.md.tpl)
-carry the short form (canonical text and example: `factory/standards/conventions.md` CONV-20). The
-[inbox template](../templates/docs/decisions-inbox-template.md) keeps the field names Mission Control and
-[decide](../skills/decide/SKILL.md) read and asks for lettered options and "Recomendada: [letra]". Architecture
-[decision-round.md](../skills/architecture/references/decision-round.md) brief example is now lettered bullets instead of a
-table; `learn` and `worktrees` one-liners updated. No skill hardcodes the old "Alternativas" shape any more (grep clean
-outside dated history). Version skips 9.155.0, reserved by the separate engine branch (which shipped later as 9.157.0 after merging this change).
-
-**Why:** owner request 2026-11-12. Existing projects get the new `AGENTS.md` text through `/pandacorp:upgrade` (overlay
-8.123.0, compatible bump: silent on their next skill preflight).
 
 ## v9.154.0 — 2026-11-11 (MINOR): Neon projects declare NEON_PROJECT_ID (EXT-8, DR-149)
 
@@ -1942,6 +2019,22 @@ Also filed: **BL-0201 (`open`)** canaries F1/F2 (below); **BL-0202 (`open`, p1, 
 
 **Impact:** `plugin/scripts/classify-change.mjs`, `plugin/scripts/test-classify-change.sh` (BL-0140/BL-0134 + BL-0164/BL-0165); `plugin/scripts/warn-adhoc-write.sh`, `plugin/scripts/test-warn-adhoc-write.sh`, `plugin/scripts/run-engine-tests.sh` (`EXPLICIT_SH_SUITES`) (BL-0044); `factory/backlog/{BL-0140,BL-0134,BL-0044,BL-0164,BL-0165,BL-0166}.md`; `plugin/runtime/plugin-metadata.json` + both manifests (9.107.0). Follow-up out of scope here: BL-0166's deliberate reproduction and root-cause; a repeat `--now` end-to-end canary confirming the render-UiPassSkipped change actually lands with this fix in place; `claude plugin update pandacorp@panda-corp` + a fresh `main` push, both this same integration session's own remaining steps.
 
+## v9.104.4 — 2026-09-23 (PATCH): nested-project worktree bootstrap fixed (BL-0155), `usage-rollup.mjs` pricing + `--out` fixed (BL-0156), `OVERLAY_VERSION` 8.82.2
+
+**What:** closes BL-0155 and BL-0156, both surfaced by the live canary B2 run (`canary-b2-report.md`, `frd-25-canary-speed-sprint`, `gateEvidence: 'digested'`) that measured BL-0149's own fix against the REAL Mission Control topology for the first time — a project nested inside the factory's repo, sharing its `.git`, rather than the flat single-repo shape every prior canary (A/B) happened to use.
+
+1. **BL-0155 — `plugin/templates/shared/.pandacorp/worktree-bootstrap.sh` step 1 only ever checked bare `package.json` (CWD-relative, correct only when the project IS the worktree root).** For Mission Control — nested at `<worktree>/mission-control/package.json`, since the factory itself (`panda-corp/`) is not an npm package — that file never exists at the worktree root, so the step silently installed NOTHING. Canary B2 confirmed this live: `evidence:frd-25` correctly refused to fabricate a report against the unbootstrapped gate worktree (`{"report": null, "reason": "gate-worktree-not-bootstrapped"}`, `GateEvidenceFallback` fired), and the `gate` agent had to `pnpm install` by hand inside `gate-worktree/mission-control` — exactly the expensive work `gateEvidence: 'digested'` exists to avoid, cutting its measured saving to −20.04% time / −9.73% cost (well short of the ≥40% bar). **BL-0149 (closed 9.104.2) never covered this — it fixed WHICH script runs (`worktree-bootstrap.sh` instead of a bare ad-hoc `pnpm install`), not that the script's own step 1 resolves the wrong directory for a nested project.** Fix: a new step 0 resolves `$APP_DIR` once, via the SAME `$WORKTREE/mission-control` → `$WORKTREE` search order step 3 already used for `PANDACORP_FACTORY_ROOT`, purely from `$WORKTREE` (`git rev-parse --show-toplevel`) — never from the invoking CWD, so the result no longer depends on which directory the caller happened to `cd` into first. Step 1's install (and its BL-0149 lockfile-sha idempotency marker) now runs against `$APP_DIR`; step 3 was refactored to reuse the same resolution instead of its own duplicate loop (DRY, no behavior change).
+2. **BL-0156a — `usage-rollup.mjs`'s `PRICING` table had no entry for `claude-opus-5-5`**, the real model id canary B2's transcripts stamped on gate/patch/baseline/plan (docs/proposals/33's audited table predates this era rotation). Those 4 agents — B2's most expensive — silently rolled up `cost_usd: null` instead of failing loud or pricing, forcing the canary's own report to hand-recompute and label 4 cost cells `(estimado)`. Priced identically to `claude-opus-5` (same $5/$25/$0.50 MTok family) until a dated pricing page proves a distinct rate.
+3. **BL-0156b — `--dir` mode accepted `--out` and silently dropped it**: `runDirMode`'s destructured params never included `out`, so the flag parsed clean, exited 0, printed a summary — and never touched the file (confirmed live by the canary, which had to append via shell `>>` instead, per its own flagged task #2). A DR-078 violation: an accepted flag that doesn't do what it says. Wired `--dir --out` to the same `appendTrackLine` idiom `--session --out` already had (append-before-stdout, so an unwritable `--out` fails loud — same discipline as REV3-N).
+
+**Why:** both were "measured, not fixed" findings the canary explicitly flagged as out of its own scope — BL-0155 is the confirmed root cause of `digested`'s honest ceiling not yet being reachable for Mission Control's real topology; BL-0156's two bugs made the canary's OWN report less trustworthy (silent nulls, a no-op flag) while it was trying to measure BL-0155's impact.
+
+**Tests:** `plugin/scripts/test-worktree-bootstrap.sh` (new suite, registered in `run-engine-tests.sh`'s `EXPLICIT_SH_SUITES`) exercises the REAL script against a REAL git worktree with a fake `pnpm` on PATH — nested topology from both the worktree-root and the nested-dir invocation CWD (proving the fix is CWD-independent, not a lucky caller cd order), non-nested topology (no regression), and the lockfile-sha idempotency guard (skip on unchanged, reinstall on changed). Confirmed RED against the pre-fix script (3 of 18 assertions failed, exactly the worktree-root-invocation/nested case) and GREEN after. `plugin/scripts/test-usage-rollup.mjs` gained `BL-0156a`/`BL-0156b`/`BL-0156c` (the last proving `--dir --out` also fails loud on an unwritable path, mirroring REV3-N). `bash plugin/scripts/run-engine-tests.sh` — 23/23 suites (was 22), run twice, 0 failures both times.
+
+**`OVERLAY_VERSION` → 8.82.2 (PATCH):** only `.pandacorp/worktree-bootstrap.sh` changed under `templates/shared/` — machinery, no skill/agent/flow change, per DR-034. Mission Control's own `.pandacorp/status.yaml` `overlay_version` bumped to match (its local copy of the script re-synced byte-identical, `cmp` confirmed).
+
+**Impact:** `plugin/templates/shared/.pandacorp/worktree-bootstrap.sh`, `mission-control/.pandacorp/worktree-bootstrap.sh` (byte-identical copy), `mission-control/.pandacorp/status.yaml` (`overlay_version`), `plugin/scripts/usage-rollup.mjs`, `plugin/scripts/test-worktree-bootstrap.sh` (new), `plugin/scripts/test-usage-rollup.mjs`, `plugin/scripts/run-engine-tests.sh` (`EXPLICIT_SH_SUITES`), `factory/backlog/{BL-0155, BL-0156}.md`, `plugin/runtime/plugin-metadata.json` + both manifests (9.104.4, `check-derived-drift.sh` clean), `plugin/templates/OVERLAY_VERSION` (8.82.2). Follow-up out of scope here: re-measuring canary B2's `digested` A/B numbers with this fix applied (its own recommendation, §6(a)) — a separate live canary run.
+
 ## v9.106.0 — 2026-09-22 (MINOR): close-out verify reuse (BL-0147), a real-token repair brake (BL-0138), and the first real `--now` dry-run's two contract bugs (BL-0161/BL-0162, BL-0163 open), `OVERLAY_VERSION` 8.84.0
 
 **What:** integrates three branches that were each already built, tested and closed on their own worktree before this integration session merged them in series (`bl-0147-closeout-verify → bl-0138-repair-brake-tokens → fix-change-now-bugs`, each rebased onto the previous and fast-forward-merged onto `main`, `run-engine-tests.sh` green after every merge). One genuine conflict: `bl-0138` and `bl-0147` both appended a new scenario block to the SAME anchor point in `plugin/scripts/test-pandacorp-build.mjs` (right before the file's `Runner` section) — resolved by keeping BOTH blocks (BL-0147a-g followed by BL-0138-1..5), verified with the real test harness (`node plugin/scripts/test-pandacorp-build.mjs`, 158/158 assertions green) rather than trusting `node --check` on the raw engine file, which false-positives on this codebase (see the "verified trap" note below). `pandacorp-build.js` itself auto-merged cleanly (no markers) despite both branches touching nearby functions.
@@ -1999,22 +2092,6 @@ Also filed: **BL-0201 (`open`)** canaries F1/F2 (below); **BL-0202 (`open`, p1, 
 **`OVERLAY_VERSION` → 8.82.3 (PATCH):** only `.claude/engines/pandacorp-build.js` changed under `templates/shared/` — machinery, no skill/agent/flow change, per DR-034. Mission Control's own `.claude/engines/pandacorp-build.js` re-synced byte-identical (`cmp` confirmed) and its `.pandacorp/status.yaml` `overlay_version` bumped to match.
 
 **Impact:** `plugin/templates/shared/.claude/engines/pandacorp-build.js`, `mission-control/.claude/engines/pandacorp-build.js` (byte-identical copy), `mission-control/.pandacorp/status.yaml` (`overlay_version`), `plugin/agents/reviewer.md`, `.codex/agents/reviewer.toml` (regenerated), `plugin/scripts/test-pandacorp-build.mjs`, `factory/backlog/BL-0157-traceability-oracle-destroys-verdict.md`, `plugin/runtime/plugin-metadata.json` + both manifests (9.104.5, `check-derived-drift.sh` clean), `plugin/templates/OVERLAY_VERSION` (8.82.3). Follow-up out of scope here: re-running a live FRD-23-shaped build to confirm the fix converges the real scenario end-to-end.
-
-## v9.104.4 — 2026-09-23 (PATCH): nested-project worktree bootstrap fixed (BL-0155), `usage-rollup.mjs` pricing + `--out` fixed (BL-0156), `OVERLAY_VERSION` 8.82.2
-
-**What:** closes BL-0155 and BL-0156, both surfaced by the live canary B2 run (`canary-b2-report.md`, `frd-25-canary-speed-sprint`, `gateEvidence: 'digested'`) that measured BL-0149's own fix against the REAL Mission Control topology for the first time — a project nested inside the factory's repo, sharing its `.git`, rather than the flat single-repo shape every prior canary (A/B) happened to use.
-
-1. **BL-0155 — `plugin/templates/shared/.pandacorp/worktree-bootstrap.sh` step 1 only ever checked bare `package.json` (CWD-relative, correct only when the project IS the worktree root).** For Mission Control — nested at `<worktree>/mission-control/package.json`, since the factory itself (`panda-corp/`) is not an npm package — that file never exists at the worktree root, so the step silently installed NOTHING. Canary B2 confirmed this live: `evidence:frd-25` correctly refused to fabricate a report against the unbootstrapped gate worktree (`{"report": null, "reason": "gate-worktree-not-bootstrapped"}`, `GateEvidenceFallback` fired), and the `gate` agent had to `pnpm install` by hand inside `gate-worktree/mission-control` — exactly the expensive work `gateEvidence: 'digested'` exists to avoid, cutting its measured saving to −20.04% time / −9.73% cost (well short of the ≥40% bar). **BL-0149 (closed 9.104.2) never covered this — it fixed WHICH script runs (`worktree-bootstrap.sh` instead of a bare ad-hoc `pnpm install`), not that the script's own step 1 resolves the wrong directory for a nested project.** Fix: a new step 0 resolves `$APP_DIR` once, via the SAME `$WORKTREE/mission-control` → `$WORKTREE` search order step 3 already used for `PANDACORP_FACTORY_ROOT`, purely from `$WORKTREE` (`git rev-parse --show-toplevel`) — never from the invoking CWD, so the result no longer depends on which directory the caller happened to `cd` into first. Step 1's install (and its BL-0149 lockfile-sha idempotency marker) now runs against `$APP_DIR`; step 3 was refactored to reuse the same resolution instead of its own duplicate loop (DRY, no behavior change).
-2. **BL-0156a — `usage-rollup.mjs`'s `PRICING` table had no entry for `claude-opus-5-5`**, the real model id canary B2's transcripts stamped on gate/patch/baseline/plan (docs/proposals/33's audited table predates this era rotation). Those 4 agents — B2's most expensive — silently rolled up `cost_usd: null` instead of failing loud or pricing, forcing the canary's own report to hand-recompute and label 4 cost cells `(estimado)`. Priced identically to `claude-opus-5` (same $5/$25/$0.50 MTok family) until a dated pricing page proves a distinct rate.
-3. **BL-0156b — `--dir` mode accepted `--out` and silently dropped it**: `runDirMode`'s destructured params never included `out`, so the flag parsed clean, exited 0, printed a summary — and never touched the file (confirmed live by the canary, which had to append via shell `>>` instead, per its own flagged task #2). A DR-078 violation: an accepted flag that doesn't do what it says. Wired `--dir --out` to the same `appendTrackLine` idiom `--session --out` already had (append-before-stdout, so an unwritable `--out` fails loud — same discipline as REV3-N).
-
-**Why:** both were "measured, not fixed" findings the canary explicitly flagged as out of its own scope — BL-0155 is the confirmed root cause of `digested`'s honest ceiling not yet being reachable for Mission Control's real topology; BL-0156's two bugs made the canary's OWN report less trustworthy (silent nulls, a no-op flag) while it was trying to measure BL-0155's impact.
-
-**Tests:** `plugin/scripts/test-worktree-bootstrap.sh` (new suite, registered in `run-engine-tests.sh`'s `EXPLICIT_SH_SUITES`) exercises the REAL script against a REAL git worktree with a fake `pnpm` on PATH — nested topology from both the worktree-root and the nested-dir invocation CWD (proving the fix is CWD-independent, not a lucky caller cd order), non-nested topology (no regression), and the lockfile-sha idempotency guard (skip on unchanged, reinstall on changed). Confirmed RED against the pre-fix script (3 of 18 assertions failed, exactly the worktree-root-invocation/nested case) and GREEN after. `plugin/scripts/test-usage-rollup.mjs` gained `BL-0156a`/`BL-0156b`/`BL-0156c` (the last proving `--dir --out` also fails loud on an unwritable path, mirroring REV3-N). `bash plugin/scripts/run-engine-tests.sh` — 23/23 suites (was 22), run twice, 0 failures both times.
-
-**`OVERLAY_VERSION` → 8.82.2 (PATCH):** only `.pandacorp/worktree-bootstrap.sh` changed under `templates/shared/` — machinery, no skill/agent/flow change, per DR-034. Mission Control's own `.pandacorp/status.yaml` `overlay_version` bumped to match (its local copy of the script re-synced byte-identical, `cmp` confirmed).
-
-**Impact:** `plugin/templates/shared/.pandacorp/worktree-bootstrap.sh`, `mission-control/.pandacorp/worktree-bootstrap.sh` (byte-identical copy), `mission-control/.pandacorp/status.yaml` (`overlay_version`), `plugin/scripts/usage-rollup.mjs`, `plugin/scripts/test-worktree-bootstrap.sh` (new), `plugin/scripts/test-usage-rollup.mjs`, `plugin/scripts/run-engine-tests.sh` (`EXPLICIT_SH_SUITES`), `factory/backlog/{BL-0155, BL-0156}.md`, `plugin/runtime/plugin-metadata.json` + both manifests (9.104.4, `check-derived-drift.sh` clean), `plugin/templates/OVERLAY_VERSION` (8.82.2). Follow-up out of scope here: re-measuring canary B2's `digested` A/B numbers with this fix applied (its own recommendation, §6(a)) — a separate live canary run.
 
 ## v9.104.3 — 2026-09-22 (PATCH, doc-only): Canary C aborted by account usage limit, deploy-worktree incident, sprint close-out backlog
 
@@ -4047,6 +4124,14 @@ that unit tests had not covered; fencing is only credible when those hostile cas
 
 **Impact:** `plugin/templates/shared/.claude/workflows/pandacorp-build.js`, `plugin/skills/{implement,adopt,change}/SKILL.md`, `plugin/scripts/test-pandacorp-build.mjs`, `factory/constitution.md` §12, `mission-control/content/manual/guides/g-adoptar.md`, `mission-control/src/app/manual/manualPages.tsx`. No `plugin/agents/*.md` changed → no Codex mirror regen. Guard: `test-pandacorp-build.mjs` 18/18; `claude plugin validate plugin/` passed.
 
+## v9.72.1 — 2026-07-06 (PATCH): targeted build no longer drains the whole change queue (DR-069 scope fix, owner incident)
+
+**What:** the build engine (`plugin/templates/shared/.claude/workflows/pandacorp-build.js`) restricted the DR-069 safe-point queue drain to **bare** `/implement` runs. A new immutable `const TARGETED = Boolean(CHANGE) || Boolean(args && args.frds)` (computed from the launch args, before `ONLY` gets reassigned to a change's affected FRDs) gates `safePoint()`: when `TARGETED`, the safe-point prompt tells the agent NOT to scan the queue (return `ready: []`) AND a **hard JS guard** (`if (TARGETED && sp.ready.length) log('⊘ Build dirigido — … NO se drenan …'); else if (!TARGETED && …) { …drain… }`) refuses to process any ready item even if one leaks through. A bare launch (`TARGETED === false`) drains exactly as before. The `rethink_pending` stop and answered-decision unblock still run on every safe point (owner signals, unconditional). `plugin/scripts/test-pandacorp-build.mjs` grew three scenarios — **10a** (targeted `frds` build: JS guard holds even when the safe-point response is forced to leak a ready item), **10b** (targeted `change` build does NOT drain a DIFFERENT ready change — the exact incident), **10c** (bare `/implement` STILL drains + skips `building` changes) — and scenario 9's now-inapplicable "drain skips building" assertion (it is a targeted change build → no scan) was updated to assert the targeted variant, with the bare-drain "skip building" coverage moved to 10c. **18/18 harness scenarios green.**
+
+**Why:** the owner ran `/implement change:mc-memory-health-remove-solo-demo-frame` (ONE change) and the engine ALSO built a second, unrelated `ready` change (`mc-proposal-stream-show-more`) sitting in the queue. Root cause: the DR-069 safe-point drain was UNCONDITIONAL — it drained every `status: ready` change regardless of the targeted scope, directly contradicting the skill's already-documented `change`/`frds` contract ("builds only those FRDs and skips everything else"). This is a fix bringing the engine in line with the promised contract (hence PATCH), not a new capability. The models were never at fault — the drain is deterministic JS, so it happened identically on any model tier.
+
+**Impact:** `plugin/templates/shared/.claude/workflows/pandacorp-build.js` (engine — `TARGETED` const + guarded `safePoint()`), `plugin/scripts/test-pandacorp-build.mjs` (scenarios 10a/10b/10c + scenario-9 assertion update; 15→18), `plugin/skills/implement/SKILL.md` (DR-069 drain step now states the targeted-build scope explicitly), `plugin/templates/OVERLAY_VERSION` → **8.66.1** (engine template changed; projects pick it up on `/upgrade`), both manifests → **9.72.1**. Mission Control got the fixed engine hand-synced into its own `.claude/workflows/pandacorp-build.js` in the same session (its build had just exposed the bug) + the Manual guide `g-implement-parcial.md` gained the targeted-scope note (see mission-control/docs/decision-log.md 2026-07-06). DR-046: this hardens an existing flow's plumbing to match its documented contract — no new gate/concept/skill surface, so the skills Reference auto-derives and only the one affected guide narrative changed. Activation: commit + `claude plugin update pandacorp@panda-corp` + restart (MC already runs the fix via its synced project copy).
+
 ## v9.74.0 — 2026-07-05 (MINOR): factory-wide contradiction sweep + preventive document-consistency gate
 
 **What:** a build engine that built TWO changes for ONE targeted request (already fixed in v9.72.1) shared its root pattern — *a contract declared with authority in one doc, silently contradicted by a sibling doc not updated in step* — with ~21 more contradictions found by a 6-reviewer parallel audit (docs/proposals/30). This sweep remediates the plugin-side findings and adds the preventive gate.
@@ -4081,14 +4166,6 @@ that unit tests had not covered; fencing is only credible when those hostile cas
 **What:** `backup-pandacorp-state.sh` now writes to `<repo-parent>/pandacorp-vault/backups/<repo>` when that vault sibling exists, else falls back to the legacy `~/.pandacorp-backups`. The location is derived **relative to the repo** (`$(dirname "$ROOT")/pandacorp-vault`) — no machine-specific path baked into the committed script (same discipline as the DR-089 deploy machinery). Part of consolidating the factory's scattered out-of-repo state (`~/.pandacorp-personal.git`, `~/.pandacorp-backups`) into one discoverable `pandacorp-vault/` sibling of `panda-corp/` — canonical convention in `factory/standards/infra.md` ("pandacorp-vault"), owner decision recorded in `factory/decision-log.md` (2026-07-05). `test-backup-and-precious.sh` still 6/6.
 
 **Why:** the owner didn't know these gitignored state folders existed (loose in HOME). Consolidating them into a named sibling next to the source makes them discoverable and relatable; auto-detection keeps the committed backup script machine-agnostic while honoring the new home.
-
-## v9.72.1 — 2026-07-06 (PATCH): targeted build no longer drains the whole change queue (DR-069 scope fix, owner incident)
-
-**What:** the build engine (`plugin/templates/shared/.claude/workflows/pandacorp-build.js`) restricted the DR-069 safe-point queue drain to **bare** `/implement` runs. A new immutable `const TARGETED = Boolean(CHANGE) || Boolean(args && args.frds)` (computed from the launch args, before `ONLY` gets reassigned to a change's affected FRDs) gates `safePoint()`: when `TARGETED`, the safe-point prompt tells the agent NOT to scan the queue (return `ready: []`) AND a **hard JS guard** (`if (TARGETED && sp.ready.length) log('⊘ Build dirigido — … NO se drenan …'); else if (!TARGETED && …) { …drain… }`) refuses to process any ready item even if one leaks through. A bare launch (`TARGETED === false`) drains exactly as before. The `rethink_pending` stop and answered-decision unblock still run on every safe point (owner signals, unconditional). `plugin/scripts/test-pandacorp-build.mjs` grew three scenarios — **10a** (targeted `frds` build: JS guard holds even when the safe-point response is forced to leak a ready item), **10b** (targeted `change` build does NOT drain a DIFFERENT ready change — the exact incident), **10c** (bare `/implement` STILL drains + skips `building` changes) — and scenario 9's now-inapplicable "drain skips building" assertion (it is a targeted change build → no scan) was updated to assert the targeted variant, with the bare-drain "skip building" coverage moved to 10c. **18/18 harness scenarios green.**
-
-**Why:** the owner ran `/implement change:mc-memory-health-remove-solo-demo-frame` (ONE change) and the engine ALSO built a second, unrelated `ready` change (`mc-proposal-stream-show-more`) sitting in the queue. Root cause: the DR-069 safe-point drain was UNCONDITIONAL — it drained every `status: ready` change regardless of the targeted scope, directly contradicting the skill's already-documented `change`/`frds` contract ("builds only those FRDs and skips everything else"). This is a fix bringing the engine in line with the promised contract (hence PATCH), not a new capability. The models were never at fault — the drain is deterministic JS, so it happened identically on any model tier.
-
-**Impact:** `plugin/templates/shared/.claude/workflows/pandacorp-build.js` (engine — `TARGETED` const + guarded `safePoint()`), `plugin/scripts/test-pandacorp-build.mjs` (scenarios 10a/10b/10c + scenario-9 assertion update; 15→18), `plugin/skills/implement/SKILL.md` (DR-069 drain step now states the targeted-build scope explicitly), `plugin/templates/OVERLAY_VERSION` → **8.66.1** (engine template changed; projects pick it up on `/upgrade`), both manifests → **9.72.1**. Mission Control got the fixed engine hand-synced into its own `.claude/workflows/pandacorp-build.js` in the same session (its build had just exposed the bug) + the Manual guide `g-implement-parcial.md` gained the targeted-scope note (see mission-control/docs/decision-log.md 2026-07-06). DR-046: this hardens an existing flow's plumbing to match its documented contract — no new gate/concept/skill surface, so the skills Reference auto-derives and only the one affected guide narrative changed. Activation: commit + `claude plugin update pandacorp@panda-corp` + restart (MC already runs the fix via its synced project copy).
 
 ## v9.72.0 — 2026-07-05 (MINOR): "no precious file lives only-gitignored" backstop — backup covers run/*.sh + worktrees + nested (BL-0045 close), new declarative precious-file check
 
@@ -4833,15 +4910,15 @@ Factory-side story: `factory/decision-log.md` (2026-07-01). Activation: commit +
 **Why:** The audit's recurring theme is enforcement drifting from doctrine: fail-open edges, basename collisions, manual JSON and stale templates let a build look green or mis-attribute while the doctrine says fail-closed. These close those gaps without adding new process.
 **Impact:** `plugin/scripts/verify-before-stop.sh`, `plugin/templates/shared/.claude/workflows/pandacorp-build.js`, `plugin/templates/shared/.pandacorp/{pending-work.sh,merge-queue.sh,status.yaml.tpl,guide.md.tpl}`, `plugin/skills/bug/SKILL.md`, `plugin/templates/OVERLAY_VERSION` (8.47.0→**8.48.0** — overlay template content changed; projects re-sync via `/upgrade`), `plugin/.claude-plugin/plugin.json` (**v9.30.0**, MINOR — build-engine behavior changed compatibly). Mission Control's installed overlay copies were synced to 8.48.0 (see `mission-control/docs/decision-log.md`). Validated: `claude plugin validate`, `bash -n` on every touched script, `node --check` on the workflow. P1-7 (a hard write-gate block) was deliberately NOT implemented — the owner already rejected a hard PreToolUse block in the registry (a hook can't tell a significant change from a micro-edit; the persistent nudge is the chosen enforcement). Activation: commit + `claude plugin update pandacorp@panda-corp` + restart.
 
-## 2026-06-29 — Skill renombrado `/pandacorp:blueprint` → `/pandacorp:architecture` + emite el digest de arquitectura · v9.29.0
-**What:** (1) `git mv plugin/skills/blueprint → plugin/skills/architecture`; H1 `# /pandacorp:architecture`; el skill se invoca ahora como `/pandacorp:architecture` (el slug = el dir, sin prefijo). Se actualizó CADA referencia VIVA al comando en el repo: skills que lo nombran como next/prev step (scaffold/spec/design/implement/work-orders), `templates/stack-*/STACK.md`, `templates/docs/work-orders-readme-template.md`, `templates/rules/README.md`, `scripts/verify-before-stop.sh`, `factory/decisions/registry.yaml` (el puntero canónico vivo + los shorthands de DR-032/100/102), `README.md`/`CLAUDE.md`/`factory/standards/infra.md`, y en Mission Control la UI + el mapa next-step + la narrativa del Manual. **NO se tocó** el artefacto `blueprint.md` (per-FRD), `blueprint-template.md`, la sección "Build Plan" ni los ids `BP-NN` (parte de la jerarquía `FRD > FDD > design-tokens > blueprint > work order`). El AGENTE `pandacorp:architect` (namespace distinto) queda igual. Las entradas históricas de los decision-logs se dejaron intactas. (2) NUEVO paso 9c: el skill EMITE `.pandacorp/comms/arquitectura-resumen.md` (español, owner-facing, gitignored) siguiendo el nuevo `templates/docs/architecture-digest-template.md` — stack table, modelo de datos condicional, comunicación/servicios, y una ficha por FRD; el DAG/ADRs/env NO se duplican (MC los lee en vivo).
-**Why:** El comando "blueprint" describía mal la fase, que produce la arquitectura completa; alinearlo con `phase: architecture`. El digest da paridad con `/spec` (su `spec-resumen.md`) para que MC muestre la arquitectura nativamente (DR-046).
-**Files:** `plugin/skills/architecture/SKILL.md` (renombrado de `blueprint/`, H1 + paso 9c), **NUEVO** `plugin/templates/docs/architecture-digest-template.md`, plugin templates/scripts arriba, `plugin/.claude-plugin/plugin.json` (v9.29.0). Fábrica: `factory/decisions/registry.yaml`, `factory/decision-log.md`. Mission Control: ver `mission-control/docs/decision-log.md` (la pestaña Arquitectura). MINOR (comando renombrado). **Sin cambio de OVERLAY** (ningún archivo de `templates/shared` referenciaba el comando — solo `blueprint.md` el doc, que se conserva). El catálogo de skills del Manual auto-deriva del dir renombrado. Activación: commit + `claude plugin update pandacorp@panda-corp` + reiniciar.
-
 ## 2026-06-30 — Un merge bloqueado DEBE llegar al dueño, en la conversación (refinamiento DR-099) · v9.28.2
 **What:** Reforzado el "loud merge hand-back" de DR-099 a DOS canales: (a) `merge-queue.sh` dispara la notificación de escritorio (ya lo hacía en el template) Y (b) **el AGENTE DEBE avisar del merge bloqueado EN LA CONVERSACIÓN** (qué se bloqueó, por qué, que el trabajo está preservado en su rama, y qué se necesita) — sin irse a hacer parches en silencio. Explícito que esto es el entregable PROPIO de la sesión y por tanto EXENTO de la regla (3) de aislamiento (que silencia los rojos de OTRAS sesiones). Editado: `guide.md.tpl` (párrafo DR-099) + comentario del `merge-queue.sh` template.
 **Why:** Un cambio de Party-liveness se construyó verde en un worktree pero el merge-queue se devolvió repetidamente (el build paralelo de FRD-10 dejó `main` en rojo por SUS propios exports muertos; luego un hueco de entorno del e2e en worktree). El dueño NUNCA SE ENTERÓ — el agente se quedó callado (sobre-aplicando "no narres otras sesiones") y se fue a parchear en `:1987`/`:3100`; el dueño lo descubrió al preguntar y advirtió que el trabajo terminado podía PERDERSE. Además se detectó que la copia de `merge-queue.sh` de Mission Control estaba DESACTUALIZADA (su `fail()` no tenía la notificación del template) → ni el canal (a) funcionaba.
 **Files:** `plugin/templates/shared/.pandacorp/guide.md.tpl` (párrafo DR-099) + `plugin/templates/shared/.pandacorp/merge-queue.sh` (comentario), `plugin/.claude-plugin/plugin.json` (v9.28.2). Factory: `factory/decisions/registry.yaml` (DR-099) + `factory/standards/build-orchestration.md` §9 + `factory/decision-log.md`. Proyecto MC (efecto inmediato): `mission-control/.pandacorp/{merge-queue.sh (fail() sincronizado), guide.md}`. Sin OVERLAY change (guía/regla; los proyectos re-sincronizan la guía en el próximo `/upgrade`). Activación: commit + `claude plugin update pandacorp@panda-corp`.
+
+## 2026-06-29 — Skill renombrado `/pandacorp:blueprint` → `/pandacorp:architecture` + emite el digest de arquitectura · v9.29.0
+**What:** (1) `git mv plugin/skills/blueprint → plugin/skills/architecture`; H1 `# /pandacorp:architecture`; el skill se invoca ahora como `/pandacorp:architecture` (el slug = el dir, sin prefijo). Se actualizó CADA referencia VIVA al comando en el repo: skills que lo nombran como next/prev step (scaffold/spec/design/implement/work-orders), `templates/stack-*/STACK.md`, `templates/docs/work-orders-readme-template.md`, `templates/rules/README.md`, `scripts/verify-before-stop.sh`, `factory/decisions/registry.yaml` (el puntero canónico vivo + los shorthands de DR-032/100/102), `README.md`/`CLAUDE.md`/`factory/standards/infra.md`, y en Mission Control la UI + el mapa next-step + la narrativa del Manual. **NO se tocó** el artefacto `blueprint.md` (per-FRD), `blueprint-template.md`, la sección "Build Plan" ni los ids `BP-NN` (parte de la jerarquía `FRD > FDD > design-tokens > blueprint > work order`). El AGENTE `pandacorp:architect` (namespace distinto) queda igual. Las entradas históricas de los decision-logs se dejaron intactas. (2) NUEVO paso 9c: el skill EMITE `.pandacorp/comms/arquitectura-resumen.md` (español, owner-facing, gitignored) siguiendo el nuevo `templates/docs/architecture-digest-template.md` — stack table, modelo de datos condicional, comunicación/servicios, y una ficha por FRD; el DAG/ADRs/env NO se duplican (MC los lee en vivo).
+**Why:** El comando "blueprint" describía mal la fase, que produce la arquitectura completa; alinearlo con `phase: architecture`. El digest da paridad con `/spec` (su `spec-resumen.md`) para que MC muestre la arquitectura nativamente (DR-046).
+**Files:** `plugin/skills/architecture/SKILL.md` (renombrado de `blueprint/`, H1 + paso 9c), **NUEVO** `plugin/templates/docs/architecture-digest-template.md`, plugin templates/scripts arriba, `plugin/.claude-plugin/plugin.json` (v9.29.0). Fábrica: `factory/decisions/registry.yaml`, `factory/decision-log.md`. Mission Control: ver `mission-control/docs/decision-log.md` (la pestaña Arquitectura). MINOR (comando renombrado). **Sin cambio de OVERLAY** (ningún archivo de `templates/shared` referenciaba el comando — solo `blueprint.md` el doc, que se conserva). El catálogo de skills del Manual auto-deriva del dir renombrado. Activación: commit + `claude plugin update pandacorp@panda-corp` + reiniciar.
 
 ## 2026-06-29 — Back-port: `knip.json` canónico reconoce el `src/proxy.ts` de Next 16 (DR-076/DR-059) · v9.28.1
 **What:** Añadido `src/proxy.ts` a los `entry` del `knip.json` canónico (`plugin/templates/stack-a-nextjs/knip.json`), conservando `src/middleware.ts` (compat Next ≤15). Next 16 renombró la convención del middleware a `proxy.ts`; sin esa entrada el `proxy.ts` real de un proyecto no se traza (hint no-fatal "no matches" sobre el `middleware.ts` obsoleto). Propagado en el MISMO cambio al proyecto vivo `personal-page-v2` (su copia conformance-checked ya coincide con la plantilla). `OVERLAY_VERSION` 8.46.0→8.47.0 para que el resto de proyectos Next lo tomen en el próximo `/pandacorp:upgrade`.
