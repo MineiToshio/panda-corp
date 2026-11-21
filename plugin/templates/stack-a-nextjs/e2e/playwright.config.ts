@@ -7,8 +7,8 @@ import { defineConfig, devices, type Project } from "@playwright/test";
  * Shell-Presence Gate (DR-075) + the Production-Build Smoke (proposal 40, PANDACORP_PROD_SMOKE). VERBATIM stack template (DR-059) — at the project ROOT, conformance-checked by
  * /pandacorp:upgrade. Deterministic by construction: single worker, animations disabled, caret
  * hidden, fonts settled before each shot, retries OFF (a retry re-creates a missing baseline → the
- * gate fails OPEN; DR-056 forbids it). In CI baselines are frozen (`updateSnapshots:'none'`);
- * locally a NEW route's baseline is written once and must then be reviewed/blessed by the FRD gate.
+ * gate fails OPEN; DR-056 forbids it). Full-scope verify freezes baselines through
+ * PANDACORP_E2E_SNAPSHOTS=none; feature gates keep missing-baseline creation for DR-080 blessing.
  *
  * The dev server runs on the project's reserved dev port (factory/standards/infra.md). Adjust PORT
  * to this project's `dev_port_base` if it differs from the default below.
@@ -167,7 +167,7 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: 0,
   reporter: [["list"]],
-  updateSnapshots: isCI ? "none" : "missing",
+  updateSnapshots: process.env.PANDACORP_E2E_SNAPSHOTS === "none" ? "none" : "missing",
   use: { baseURL: BASE_URL, trace: "off" },
   expect: {
     toHaveScreenshot: {

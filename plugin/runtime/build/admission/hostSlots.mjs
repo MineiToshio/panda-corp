@@ -1,6 +1,7 @@
 // Host heavy-tool slots (A1), the same protocol as merge-queue.sh (split from admission.mjs).
 import * as nodeFs from 'node:fs'
 import os from 'node:os'
+import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { ADMISSION, hMax } from './constants.mjs'
 
@@ -17,7 +18,7 @@ const defaultIsAlive = (pid) => {
 function readOwner(fs, slot) {
   try {
     const o = JSON.parse(fs.readFileSync(path.join(slot, 'owner.json'), 'utf8'))
-    return o && Number.isInteger(o.pid) ? o : null
+    return o && Number.isInteger(o.pid) && o.pid > 0 ? o : null
   } catch { return null }
 }
 
@@ -32,13 +33,21 @@ function isStaleSlot(fs, slot, nowMs, isAlive, graceMs) {
  * Removes a slot directory atomically: `rename` to a unique tomb (only one racer wins the rename; a loser sees ENOENT and
  * touches nothing, so a slot a faster waiter just re-took is never deleted), then removes the tomb.
  */
-function removeSlot(fs, slot) {
-  const tomb = `${slot}.tomb-${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+function removeSlot(fs, slot, expected, allowed) {
+  const tomb = `${slot}.tomb-${randomUUID()}`
   try {
+    const stat = fs.statSync(slot)
+    if (stat.ino !== expected.ino || stat.dev !== expected.dev) return false
     fs.renameSync(slot, tomb)
   } catch (e) {
     if (e.code === 'ENOENT') return false
     throw e
+  }
+  // Re-check AFTER detaching: an ABA replacement must never be recursively deleted.
+  const detached = fs.statSync(tomb)
+  if (detached.ino !== expected.ino || detached.dev !== expected.dev || !allowed(tomb)) {
+    if (!fs.existsSync(slot)) fs.renameSync(tomb, slot)
+    return false
   }
   fs.rmSync(tomb, { recursive: true, force: true })
   return true
@@ -46,18 +55,18 @@ function removeSlot(fs, slot) {
 
 /**
  * Try once to take a host heavy-tool slot (non-blocking). Protocol: `mkdir <dir>/slot-<i>` in index order, then write
- * owner.json {pid, kind, project, at}; a stale slot is `rm -rf`-reclaimed and retried.
- * @param {{dir?: string, host?: string, max?: number, kind: 'g2'|'merge-queue', project: string, pid?: number,
+ * owner.json {pid, kind, project, at, token}; dead-pid or ownerless >60s slots are atomically reclaimed.
+ * @param {{dir?: string, host?: string, max?: number, kind: 'g2'|'merge-queue'|'verify', project: string, pid?: number,
  *          now?: () => number, isAlive?: (pid:number)=>boolean, fs?: object, graceMs?: number}} opts
  *   `host` is the host directory (slots under `<host>/h-slots/slot-<i>`); `dir` is the slots directory itself; with neither,
  *   `$PANDACORP_HOST_DIR` or `~/.pandacorp/host`.
- * @returns {{slot: string, index: number, release: () => boolean}|null} null when every slot is held.
+ * @returns {{slot: string, index: number, token: string, release: () => boolean}|null} null when every slot is held.
  */
 export function acquireHostSlot({
   dir, host, max = hMax(), kind, project, pid = process.pid, now = Date.now, isAlive = defaultIsAlive,
   fs = nodeFs, graceMs = ADMISSION.SLOT_OWNERLESS_GRACE_MS,
 }) {
-  if (!['g2', 'merge-queue'].includes(kind)) throw new TypeError(`acquireHostSlot: kind must be g2|merge-queue, got ${kind}`)
+  if (!['g2', 'merge-queue', 'verify'].includes(kind)) throw new TypeError(`acquireHostSlot: kind must be g2|merge-queue|verify, got ${kind}`)
   const slots = dir ?? hSlotsDir(host ?? hostDir())
   fs.mkdirSync(slots, { recursive: true })
   for (let i = 0; i < max; i++) {
@@ -68,21 +77,23 @@ export function acquireHostSlot({
       } catch (e) {
         if (e.code !== 'EEXIST') throw e
         // Re-judge right before deleting so a slot a faster waiter just re-took is never removed.
+        let expected
+        try { expected = fs.statSync(slot) } catch (error) { if (error.code === 'ENOENT') continue; throw error }
         if (!isStaleSlot(fs, slot, now(), isAlive, graceMs)) break
-        removeSlot(fs, slot)
+        removeSlot(fs, slot, expected, (target) => isStaleSlot(fs, target, now(), isAlive, graceMs))
         continue
       }
-      const owner = { pid, kind, project, at: new Date(now()).toISOString() }
+      const owner = { pid, kind, project, at: new Date(now()).toISOString(), token: randomUUID() }
       // tmp + rename like merge-queue.sh, so a concurrent reader never sees a half-written owner.json
       fs.writeFileSync(path.join(slot, 'owner.json.tmp'), `${JSON.stringify(owner)}\n`)
       fs.renameSync(path.join(slot, 'owner.json.tmp'), path.join(slot, 'owner.json'))
+      const identity = fs.statSync(slot)
       const release = () => {
         const cur = readOwner(fs, slot)
-        if (cur && (cur.pid !== owner.pid || cur.at !== owner.at)) return false // reclaimed and re-taken by someone else
-        removeSlot(fs, slot)
-        return true
+        if (!cur || cur.token !== owner.token) return false // never delete an unknown/replacement owner
+        return removeSlot(fs, slot, identity, (target) => readOwner(fs, target)?.token === owner.token)
       }
-      return { slot, index: i, release }
+      return { slot, index: i, token: owner.token, release }
     }
   }
   return null
