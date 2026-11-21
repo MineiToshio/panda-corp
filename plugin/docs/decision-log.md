@@ -1,5 +1,17 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-21 — Proposal 43 phase 3: owner evidence and incremental test caps
+
+Ships plugin 10.19.0 / overlay 9.9.0. DR-158 amended for owner decision 5B: Mission Control/internal exact-id suspect verdict exclusions, signed TTY owner evidence, reviewed public key, <=14-day expiry, stamp expiry/input binding and non-certifying nightly disposable-main observations. Tests still execute once; agents never authorize. The guard cannot authenticate a human with shared OS/key access. DR-159 amended for 6C: reviewed per-test baseline and new-test duration caps (30 s per runner proposed from supplied measurements), old-test warnings and no absolute stage-time reds. DR-165 phase 3 preserves blocking browsers (4A). Upgrade ships the shared parser/policy; project copies and UI displays are left to their own flow. Canonical: [build orchestration](../../factory/standards/build-orchestration.md), [rules](../templates/rules/quality-and-testing.md), [routines](routines.md). New suites exercise expiry, authorization forgery, exact verdicts, stamp expiry, nightly teardown and budgets.
+
+Validation: new exclusion/nightly/budget suites pass individually; report regression 112/0,
+stamp controls 12/0 and outputs 13/0, snapshots 7/0, diagnosis 7/0, required record 5/0,
+pre-push proof 20/0, nested overlay 7/0, workers 16/0, flaky suspects 12/0 and runner
+`--list-only` 5/0. Derived drift and diff whitespace pass. Standards check retains only the
+pre-existing build-engine.md preamble failure. No real browser run, owner authorization,
+project upgrade, commit or production action was performed. Manual guidance changed in the
+factory dashboard's hand-authored manual; product suspect/exclusion display stays out of scope.
+
 ## 2026-11-21 - Reject wrong-gitdir proofs in both bootstrap modes
 
 Independent review found bootstrap could renew a manifest cleanup rejected: ownership checked

@@ -1,5 +1,9 @@
 # Decision Log — Factory
 
+## 2026-11-21 — Amend DR-158/159 for proposal 43 decisions 5B and 6C
+
+DR-165 phase 3 implements only the owner-selected scope: signed owner-only exclusions for internal Mission Control and a budget on summed added-test time. Browser gates remain blocking. The [registry](decisions/registry.yaml), [build orchestration](standards/build-orchestration.md) and [quality](standards/quality.md) now define exact reporter identities, reviewed trust anchors, <=14-day expiry, nightly full observations without certification and reviewed green-full baseline refreshes. Default proposal is 30 s each: max(30 s, 2% stage) for all supplied Mission Control/funko timings. Signature/TTY evidence is explicitly limited by shared key/review privileges. Plugin 10.19.0, overlay 9.9.0; no project overlay is edited.
+
 ## 2026-11-21 - Reject invalid Git-directory provenance before bootstrap renewal
 
 [Build orchestration](standards/build-orchestration.md) now makes the complete manifest trust

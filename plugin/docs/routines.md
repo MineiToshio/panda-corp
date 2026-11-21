@@ -168,3 +168,27 @@ PASO 3 — Archiva, no edites. Por cada contradicción CONFIRMADA, fíchala en f
 
 PASO 4 — Reporte corto al owner en español: cuántas contradicciones confirmadas, cuáles se ficharon como BL-*, una línea cada una. Si no hay ninguna, dilo en una línea y termina (un barrido limpio es buena noticia pero breve).
 ```
+
+## 4. `pandacorp-excluded-tests` — nightly owner-excluded observations (DR-165/5B)
+
+- **Cron:** `0 3 * * *` (daily, 03:00 local; install explicitly in the runtime-local scheduler).
+- **Description:** Nightly full diagnostic gate for projects with committed owner exclusions.
+- **Prompt (canonical):**
+
+```
+Read the portfolio. For each project with committed .pandacorp/test-exclusions.json
+on main, run bash <plugin>/scripts/nightly-excluded-run.sh <project>.
+Report every nonzero result and missing/incomplete observation; never retry to get green,
+remove an exclusion, refresh the budget baseline, merge, push or authorize production.
+```
+
+The script uses a detached disposable worktree at local main's tip (no fetch/push),
+prepares frozen pnpm dependencies and runs the full gate with
+`PANDACORP_DISABLE_TEST_EXCLUSIONS=1`, an invocation-only stamp control. Gate runs
+attempt every static/unit/browser layer despite static/test reds. Outcomes append
+through the normal main-checkout ledger writer. No stamp may be recorded, including
+by direct green-stamp invocation with that control. Both green/red remove the named
+disposable worktree; failures retain observations in main. Project-native environment
+or service setup must be available; infrastructure failure is reported, never called
+a successful nightly pass. This routine is documented, not installed by this change.
+Owner-only `authorize-exclusion.mjs` is forbidden to agents and scheduled jobs.

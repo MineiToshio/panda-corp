@@ -202,6 +202,8 @@ fi
 # spelling, so a plausible invocation can never be silently ignored and degrade to a full run).
 NO_BAIL="${PANDACORP_VERIFY_NO_BAIL:-0}"
 REPORT_ALL=0
+NIGHTLY_RED=0
+[ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" != 1 ] || REPORT_ALL=1
 DIAGNOSE_UNIT=0
 ONLY_GATES=""
 SCOPE_FILES=""
@@ -779,7 +781,7 @@ if scope == 'full' and budget_path.exists():
         budget = json.loads(budget_path.read_text())
         margin = budget.get('margin', 0.25)
         minimum = budget.get('min_delta_ms', 1000)
-        stages = budget['stages']
+        stages = budget.get('stages', {})
         def number(value):
             return type(value) in (int, float) and math.isfinite(value)
         if (not number(margin) or margin < 0 or not number(minimum) or minimum < 0
@@ -796,6 +798,18 @@ if scope == 'full' and budget_path.exists():
     report['budget_warnings'] = warnings
     for warning in warnings:
         print('WARN DR-159 gate budget: ' + warning)
+timings = []
+for runner in ('vitest', 'playwright'):
+    path = Path(frag_path).parent / (runner + '.json.tests.json')
+    if path.exists(): timings.extend(json.loads(path.read_text()))
+report['test_timings'] = timings
+policy_warnings = []
+for path in Path(frag_path).parent.glob('log-*-policy.txt'):
+    policy_warnings.extend(line for line in path.read_text().splitlines() if line.startswith('WARN DR-159'))
+if policy_warnings:
+    report.setdefault('budget_warnings', []).extend(policy_warnings)
+if __import__('os').environ.get('PANDACORP_DISABLE_TEST_EXCLUSIONS') == '1':
+    report['certification'] = 'disabled-exclusions-nightly'
 with open(out_path, "w") as fh:
     json.dump(report, fh, indent=2)
     fh.write("\n")
@@ -807,7 +821,7 @@ PY
   if [ -f .pandacorp/green-stamp.sh ]; then
     if [ "$green_exit" -ne 0 ]; then
       bash .pandacorp/green-stamp.sh invalidate || true
-    elif [ "$GATE_SCOPE" = "full" ] && [ -n "$STAMP_START_TREE" ]; then
+    elif [ "$GATE_SCOPE" = "full" ] && [ -n "$STAMP_START_TREE" ] && [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" != 1 ]; then
       record_rc=0
       record_reason=$(bash .pandacorp/green-stamp.sh record "$STAMP_START_TREE" 2>&1) || record_rc=$?
       python3 - "$record_rc" "$record_reason" <<'RECORDPY'
@@ -859,6 +873,12 @@ dr146_invocation_error() {
   write_gate_report 2
   exit 2
 }
+case "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" in 0|1) ;; *) dr146_invocation_error "PANDACORP_DISABLE_TEST_EXCLUSIONS must be 0 or 1" ;; esac
+if [ -f .pandacorp/test-exclusions.json ] && [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" != 1 ]; then
+  node .pandacorp/test-gate-policy.mjs validate . || dr146_invocation_error "invalid owner exclusions"
+  # Run every test once; only exact authorized failures can be removed from the verdict.
+  NO_BAIL=1
+fi
 case "$NO_BAIL" in 0|1) ;; *) dr146_invocation_error "PANDACORP_VERIFY_NO_BAIL must be 0 or 1" ;; esac
 export PANDACORP_E2E_CERTIFICATION=1
 export PANDACORP_VERIFY_NO_BAIL="$NO_BAIL"
@@ -978,7 +998,7 @@ if [ "$_static_selected" -eq 1 ] && [ -x node_modules/.bin/next ] && [ ! -d .nex
   _typegen_rc=0
   run_gate next-typegen plain gate_next_typegen || _typegen_rc=$?
   if [ "$_typegen_rc" -ne 0 ]; then
-    if [ "$DIAGNOSE_UNIT" -eq 1 ]; then CHEAP_GATES_FAILED=1; LAST_CHEAP_RC="$_typegen_rc";
+    if [ "$DIAGNOSE_UNIT" -eq 1 ] || [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" = 1 ]; then CHEAP_GATES_FAILED=1; LAST_CHEAP_RC="$_typegen_rc";
     else write_gate_report "$_typegen_rc"; exit "$_typegen_rc"; fi
   fi
 fi
@@ -1148,7 +1168,7 @@ run_cheap_gate madge pathlist pnpm madge --circular --extensions ts,tsx src
 # `--report-all`: all 9 cheap gates above have now run and reported independently — abort ONCE,
 # here, with the aggregate verdict, instead of at the first one (vitest/Playwright never run on a
 # cheap-gate red; there is nothing more the expensive layers would add to an already-red verdict).
-if [ "$REPORT_ALL" -eq 1 ] && [ "$CHEAP_GATES_FAILED" -eq 1 ] && [ "$DIAGNOSE_UNIT" -ne 1 ]; then
+if [ "$REPORT_ALL" -eq 1 ] && [ "$CHEAP_GATES_FAILED" -eq 1 ] && [ "$DIAGNOSE_UNIT" -ne 1 ] && [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" != 1 ]; then
   write_gate_report "$LAST_CHEAP_RC"
   exit "$LAST_CHEAP_RC"
 fi
@@ -1156,12 +1176,16 @@ fi
 # Outcomes are observations, never retries or exclusions. JSON reporters are enabled only
 # for queue gates and diagnosis; ordinary scoped command lines retain their existing shape.
 LEDGER=0
-[ "$DIAGNOSE_UNIT" -ne 1 ] && [ -z "${PANDACORP_QUEUE_ATTEMPT:-}" ] || LEDGER=1
+[ "$DIAGNOSE_UNIT" -ne 1 ] && [ -z "${PANDACORP_QUEUE_ATTEMPT:-}" ] && [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" != 1 ] || LEDGER=1
 VITEST_REPORTERS=(--reporter=dot)
 PLAYWRIGHT_REPORTERS=()
-if [ "$LEDGER" -eq 1 ]; then
+if [ "$LEDGER" -eq 1 ] || { [ "$GATE_SCOPE" = full ] && [ -f .pandacorp/test-gate-policy.mjs ]; } || [ -f .pandacorp/test-exclusions.json ]; then
   VITEST_REPORTERS+=(--reporter=json "--outputFile=$GATE_FRAGMENTS_DIR/vitest.json")
   PLAYWRIGHT_REPORTERS=(--reporter=line,json)
+  if [ -f .pandacorp/test-exclusions.json ] && [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" != 1 ]; then
+    VITEST_REPORTERS+=(--reporter=./.pandacorp/test-gate-policy.mjs)
+    export PANDACORP_VITEST_ERRORS_FILE="$GATE_FRAGMENTS_DIR/vitest.json.errors.json"
+  fi
   export PLAYWRIGHT_JSON_OUTPUT_FILE="$GATE_FRAGMENTS_DIR/playwright.json"
 fi
 # A diagnosis often precedes its repair commit. Never attribute different physical
@@ -1198,7 +1222,7 @@ TREEPY
 fi
 append_test_outcomes() {
   [ "$LEDGER" -eq 1 ] || return 0
-  python3 - "$1" "$GATE_FRAGMENTS_DIR/$1.json" "$OUTCOMES_TREE" "$VITEST_SEED" <<'OUTCOMESPY' || echo 'verify: WARNING test-outcomes ledger incomplete (reporter/append error)' >&2
+  python3 - "$1" "$GATE_FRAGMENTS_DIR/$1.json" "$OUTCOMES_TREE" "$VITEST_SEED" <<'OUTCOMESPY' || { echo 'verify: WARNING test-outcomes ledger incomplete (reporter/append error)' >&2; [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" != 1 ] || NIGHTLY_RED=1; }
 import datetime, json, os, pathlib, subprocess, sys, uuid
 runner, filename, tree, seed = sys.argv[1:]
 def git(*args): return subprocess.check_output(['git', *args], text=True).strip()
@@ -1247,6 +1271,35 @@ finally: os.close(fd)
 OUTCOMESPY
 }
 
+# Full reporter data is persisted with the report for reviewed baseline refreshes.
+# Keep Bash 3.2 arrays/arguments; no GNU timeout/date or process-substitution serialization.
+evaluate_test_policy() {
+  local runner="$1" original="$2" rc=0
+  if [ "$GATE_SCOPE" != full ] && [ ! -f .pandacorp/test-exclusions.json ]; then return "$original"; fi
+  if [ ! -f .pandacorp/test-gate-policy.mjs ]; then
+    if [ -f .pandacorp/test-exclusions.json ] || { [ -f .pandacorp/gate-budget.json ] && grep -q '"schemaVersion"' .pandacorp/gate-budget.json; }; then
+      echo 'verify: policy helper missing; upgrade overlay' >&2; return 1
+    fi
+    echo 'WARN DR-159: missing gate-budget.json / policy helper (upgrade overlay)'
+    return "$original"
+  fi
+  PANDACORP_GATE_FULL="$([ "$GATE_SCOPE" = full ] && echo 1 || echo 0)" node .pandacorp/test-gate-policy.mjs evaluate . "$runner" "$GATE_FRAGMENTS_DIR/$runner.json" "$original" 2>&1 | tee "$GATE_FRAGMENTS_DIR/log-$runner-policy.txt" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    record_gate_result "$runner-policy" plain "$rc" 0 "$GATE_FRAGMENTS_DIR/log-$runner-policy.txt"
+  fi
+  if [ "$rc" -eq 0 ] && [ "$original" -ne 0 ]; then
+    python3 - "$GATE_FRAGMENTS_DIR/fragments.jsonl" "$runner" <<'EXCLUDEPY'
+import json, pathlib, sys
+p=pathlib.Path(sys.argv[1]); rows=list(map(json.loads,p.read_text().splitlines()))
+for row in rows:
+    if row['name']==sys.argv[2]:
+        row['observed_exit']=row['exit']; row['exit']=0; row['owner_exclusions_applied']=True
+p.write_text(''.join(json.dumps(row)+'\n' for row in rows))
+EXCLUDEPY
+  fi
+  return "$rc"
+}
+
 # --- Behavior -----------------------------------------------------------------
 # shellcheck disable=SC2086
 # `|| VITEST_RC=$?` (not a bare call + `$?` on the next line): under `set -e` a plain non-zero
@@ -1278,9 +1331,9 @@ else
   run_gate vitest vitest pnpm vitest run "${VITEST_REPORTERS[@]}" ${SINCE:+--changed "$SINCE"} "${VITEST_ORDER[@]}" || VITEST_RC=$?
 fi
 append_test_outcomes vitest
-if [ "$VITEST_RC" -ne 0 ]; then
-  write_gate_report "$VITEST_RC"
-  exit "$VITEST_RC"
+if ! evaluate_test_policy vitest "$VITEST_RC"; then
+  if [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" = 1 ]; then NIGHTLY_RED=1;
+  else write_gate_report 1; exit 1; fi
 fi
 fi
 
@@ -1367,13 +1420,14 @@ if gate_selected playwright && [ "$AFFECTED_SKIP" -eq 0 ]; then
 PLAYWRIGHT_RC=0
 run_gate playwright playwright gate_playwright || PLAYWRIGHT_RC=$?
 append_test_outcomes playwright
-if [ "$PLAYWRIGHT_RC" -ne 0 ]; then
-  if [ "$GATE_SCOPE" = "full" ] && grep -Eiq "(snapshot.*(doesn't exist|does not exist|missing)|missing.*snapshot|no snapshot)" "$GATE_FRAGMENTS_DIR/log-playwright.txt"; then
+if ! evaluate_test_policy playwright "$PLAYWRIGHT_RC"; then
+  if [ "$GATE_SCOPE" = full ] && grep -Eiq "(snapshot.*(doesn't exist|does not exist|missing)|missing.*snapshot|no snapshot)" "$GATE_FRAGMENTS_DIR/log-playwright.txt"; then
     echo "baseline not blessed — bless it at the feature gate (DR-080), commit it, re-queue"
   fi
-  write_gate_report "$PLAYWRIGHT_RC"
-  exit "$PLAYWRIGHT_RC"
+  if [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" = 1 ]; then NIGHTLY_RED=1;
+  else write_gate_report 1; exit 1; fi
 fi
+
 fi
 
 # --- Bless-provenance advisory (DR-080) — non-blocking -------------------------
@@ -1396,6 +1450,9 @@ if { gate_selected vitest || gate_selected playwright; } &&
   fi
 fi
 
+if [ "$NIGHTLY_RED" -eq 1 ] || { [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" = 1 ] && [ "$CHEAP_GATES_FAILED" -eq 1 ]; }; then
+  write_gate_report 1; exit 1
+fi
 if [ "$DIAGNOSE_UNIT" -eq 1 ] && [ "$CHEAP_GATES_FAILED" -eq 1 ]; then
   write_gate_report "$LAST_CHEAP_RC"
   exit "$LAST_CHEAP_RC"

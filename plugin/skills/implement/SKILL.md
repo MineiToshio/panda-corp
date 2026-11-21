@@ -21,7 +21,7 @@ bypass. The agent never sets the bypass. A transferred stamp's main-checkout che
 (the whole unit suite) before re-queueing. After a Playwright red, run the failing spec plus all static checks.
 `bash .pandacorp/verify.sh --diagnose-unit` reports all static/unit failures under the host slot, never
 certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandacorp/run/test-outcomes.jsonl`;
-`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or exclusions.
+`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or autonomous exclusions. DR-165/5B permits reviewed owner-signed exact-id suspect verdict exclusions only in internal Mission Control (maximum 14 days); agents NEVER run authorize-exclusion.mjs, even with a TTY.
 
 
 **The single Pandacorp entry for building and resuming.** Claude Code and Codex use the same

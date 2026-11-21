@@ -49,6 +49,9 @@ factory/ideas/_drafts/**
 !/mission-control/.pandacorp/verify.sh
 !/mission-control/.pandacorp/vitest-policy.ts
 !/mission-control/.pandacorp/gate-budget.json
+!/mission-control/.pandacorp/test-gate-policy.mjs
+!/mission-control/.pandacorp/test-exclusions.json
+!/mission-control/.pandacorp/exclusion-owner.pub
 !/mission-control/.pandacorp/canary.sh
 !/mission-control/.pandacorp/merge-queue.sh
 !/mission-control/.pandacorp/green-stamp.sh

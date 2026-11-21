@@ -196,18 +196,14 @@ Executable evidence: `test-verify-gate-report.sh`, `test-verify-before-stop.sh`,
   preserve Vitest's default or pass the project's existing `defaultMaxWorkers`.
   Tune from measured CPU/RAM/DB contention; never impose a machine-specific width.
   DR-146 shuffle and seed still come from the gate; this helper never changes them.
-- Optional `.pandacorp/gate-budget.json` records a reviewed full-green baseline:
-  `{ "margin": 0.25, "min_delta_ms": 1000, "stages": { "vitest": 80000 } }`.
-  Stage values are milliseconds from `gate-report.json.subgates[].duration_ms`.
-  Record command, seed, toolchain, host conditions and suite counts in the review
-  document. Compare full runs only; a stage warns when it exceeds both its relative
-  margin and minimum absolute delta. Warnings appear in stdout and report
-  `budget_warnings`; invalid budget data warns too. No baseline means no comparison.
-  At the first full-green close-out, have the reviewer record a missing baseline
-  with that provenance; upgrades preserve an existing baseline. When full execution
-  is external, hand off baseline capture explicitly rather than invent timing data.
-  Never replace the baseline automatically: investigate growth, preserve cases and
-  review intentional budget changes. This is observation, never a certification gate.
+- DR-165 decision 6C replaces advisory-only stage budgets with schemaVersion 1
+  `.pandacorp/gate-budget.json`: reviewed exact-id baseline + added-test caps per
+  runner. Full runs fail only when summed new-test time exceeds its cap; existing
+  tests slowing down warn. Absolute stage time never fails. Missing budget warns.
+  The helper refreshes only from green full reporter evidence in a reviewed commit.
+  Owner-only Mission Control exclusions (5B) use signed evidence, suspect checks,
+  <=14-day expiry and a non-certifying nightly full run; agents never authorize.
+  Canonical contract and measured 30 s defaults: [build orchestration](build-orchestration.md#owner-exclusions-and-added-test-cost-dr-165-phase-3).
 
 **Database fixture template by fingerprint (recipe, no domain implementation).**
 Hash migration contents, schema/fixture version and database/toolchain versions.

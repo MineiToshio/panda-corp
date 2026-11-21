@@ -33,7 +33,7 @@ bypass. The agent never sets the bypass. A transferred stamp's main-checkout che
 (the whole unit suite) before re-queueing. After a Playwright red, run the failing spec plus all static checks.
 `bash .pandacorp/verify.sh --diagnose-unit` reports all static/unit failures under the host slot, never
 certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandacorp/run/test-outcomes.jsonl`;
-`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or exclusions.
+`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or autonomous exclusions. DR-165/5B permits reviewed owner-signed exact-id suspect verdict exclusions only in internal Mission Control (maximum 14 days); agents NEVER run authorize-exclusion.mjs, even with a TTY.
 
 ## Language & interaction
 Git-tracked status decides the language: committed → English (code: variables, functions, types, comments, commits; and product/technical docs); gitignored → Spanish (the owner-facing communication layer + personal data). User-facing content via i18n (never hardcoded), default locale from the product's launch-language decision. **The interaction with the owner is always in Spanish** — everything the agent says in chat and inside any skill (questions, explanations, progress, recommendations) is in Spanish, regardless of the artifact's language.
@@ -91,3 +91,7 @@ A **Pandacorp** factory project. The whole lifecycle is managed with the `/panda
      Pandacorp manages the sections above and the `.pandacorp/` folder;
      `/pandacorp:upgrade` never edits below this line.
      ────────────────────────────────────────────────────────────────── -->
+
+## Owner-only test exclusions (DR-165)
+
+Agents NEVER run `authorize-exclusion.mjs`, including with a TTY, fabricate authorization evidence, replace the owner public key or add exclusions autonomously. Only the owner can authorize individual ledger suspects in Mission Control/internal. Review the signed committed policy and expiry (maximum 14 days). Browser gates remain blocking. Budget baseline refreshes require a green full run and a reviewed commit; never raise caps to hide a red.

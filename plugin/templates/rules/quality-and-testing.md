@@ -28,7 +28,7 @@ bypass. The agent never sets the bypass. A transferred stamp's main-checkout che
 (the whole unit suite) before re-queueing. After a Playwright red, run the failing spec plus all static checks.
 `bash .pandacorp/verify.sh --diagnose-unit` reports all static/unit failures under the host slot, never
 certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandacorp/run/test-outcomes.jsonl`;
-`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or exclusions.
+`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or autonomous exclusions. DR-165/5B permits reviewed owner-signed exact-id suspect verdict exclusions only in internal Mission Control (maximum 14 days); agents NEVER run authorize-exclusion.mjs, even with a TTY.
 
 ## Numeric bars & test ownership
 - **Mutation score ≥ 60%** on new business logic (Stryker/mutmut) — at FRD milestone close and toward main, not every gate.
@@ -100,3 +100,10 @@ certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandac
   reports the capability error and retained receipt/paths; sandbox workers hand off git writes.
 - Deterministic verifier: plugin/scripts/test-session-cleanup.mjs plus the independent
   adversarial suite; the coordinator's create/register/finish call is a close-out obligation.
+
+## Owner exclusions and added-test budgets (DR-165 phase 3)
+
+- Browser tests remain blocking (4A). Only Mission Control/internal may commit `.pandacorp/test-exclusions.json`; exact same-tree ledger suspects only, reason, signed owner evidence and UTC expiry <=14 days. Agents NEVER run `authorize-exclusion.mjs`, even with a TTY, or fabricate evidence. Owner runs it, reviews and commits the entry/public key. Tests still execute once; only exact authorized failures leave the verdict. No retries. Stamp expires at earliest exclusion expiry.
+- A nightly disposable main-tip worktree runs the whole gate without exclusions (`PANDACORP_DISABLE_TEST_EXCLUSIONS=1`), appends ledger observations and never stamps. Production authorization is never inherited.
+- Commit `.pandacorp/gate-budget.json` schemaVersion 1 with `addedTestTimeBudgetMs` (vitest/playwright) and exact-id `baseline` milliseconds. Full scope fails only on summed added-test durations above cap; slower existing tests warn. Missing budget warns. Absolute stage time never fails. Defaults: 30000 ms each (max(30 s, 2% of supplied stage measurements)).
+- Refresh with `node <plugin>/scripts/gate-budget-baseline.mjs <project> --from <green-full-gate-report.json>` and review/commit the baseline; never auto-raise caps or bless partial/red evidence.

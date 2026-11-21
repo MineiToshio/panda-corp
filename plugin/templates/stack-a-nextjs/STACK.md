@@ -303,5 +303,7 @@ unchanged. Never disable isolation or change pool to claim an improvement.
 On each new/changed e2e spec, maintain both opted-in inventories and reviewed reasons.
 `serial-specs.json` is a project-owned `{ "example.spec.ts": "reason" }` object; it
 records intent without changing selection. Optional `.pandacorp/gate-budget.json`
-records full-green stage milliseconds, a relative margin (default 25%) and minimum
-absolute delta (default 1000 ms). See quality.md DR-159 for schema and provenance.
+records schemaVersion 1, exact-id test baseline milliseconds and `addedTestTimeBudgetMs`
+per runner (default proposal 30000 ms each). New-test sums above cap fail full scope;
+old-test slowdowns only warn. Refresh from a green full report in a reviewed commit.
+See quality.md DR-159 and build-orchestration.md DR-165 phase 3 for schema/provenance.

@@ -54,7 +54,7 @@ bypass. The agent never sets the bypass. A transferred stamp's main-checkout che
 (the whole unit suite) before re-queueing. After a Playwright red, run the failing spec plus all static checks.
 `bash .pandacorp/verify.sh --diagnose-unit` reports all static/unit failures under the host slot, never
 certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandacorp/run/test-outcomes.jsonl`;
-`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or exclusions.
+`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns; owner-only exclusions follow DR-165 phase 3 below.
 
 ## 2. Coarse work orders
 
@@ -633,12 +633,79 @@ prevents reuse, and exit 75 must not trigger deletion of the active owner's gene
 Builders and test-writers classify every new/changed e2e spec on both opted-in axes;
 reviewers check the reasons and transitive effects before accepting a unit. The
 canonical [quality standard](quality.md#keeping-verification-fast-as-suites-grow-dr-159)
-owns the inventory formats, Node/DOM Vitest recipe and advisory stage budget.
+owns the inventory formats, Node/DOM Vitest recipe and added-test budget.
 The CLI brief repeats this obligation even for general-purpose workers. Inventory
 and associated review-document changes belong in the same review unit as the spec.
 Close-out reads WARNs in gate stdout and `budget_warnings` in the full gate report,
-explains regressions, and reports unresolved findings. A slow stage never triggers
+explains regressions, and reports unresolved findings. Absolute slow stage time never triggers
 a patch verdict, waives a test, widens scope or silently raises its own baseline.
 Upgrade manages the shared helper; project configuration and reviewed budgets stay
 project-owned. Verification: `test-verify-gate-report.sh`, `test-vitest-policy.mjs`
 and `test-build-v2-workers.mjs`; classification rationale is review-only.
+
+### Owner exclusions and added-test cost (DR-165 phase 3)
+
+Decision 4A keeps browser tests blocking. Decision 5B permits ONLY Mission Control
+(`package.json.name: mission-control`, `deploy_target: internal`) to opt in by committing
+`.pandacorp/test-exclusions.json` (an array). This location keeps gate policy next
+to its budget and out of browser fixture inventories. Every entry has exact ledger
+reporter `id`, nonempty `reason`, `authorized_by: "owner"`, `authorized_at`, `expires`
+(UTC YYYY-MM-DD, > authorization and at most 14 days), and `authorization`.
+The date expires at UTC midnight, not the end of that date. External launched
+projects and all other projects fail loudly. Missing/malformed suspect evidence
+also fails. An empty array is valid opt-in without exclusions.
+
+OWNER ONLY, from the project: `node <plugin>/scripts/authorize-exclusion.mjs
+"<exact test id>" --reason "<reason>" --days 7`. It requires stdin/stdout TTY and
+literal `AUTHORIZE`. It signs a SHA-256 binding of id, reason, owner, dates and
+protocol with an Ed25519 owner-local key (`~/.config/pandacorp/exclusion-owner-key.pem`,
+mode 0600). Commit the entry and `.pandacorp/exclusion-owner.pub` for review;
+verify rejects uncommitted policy/key changes, invalid signatures, non-suspects
+and expired authorizations. Agents NEVER run this command or manufacture evidence.
+This is evidence, not a human authentication boundary: an agent with a TTY could
+confirm, and one with access to the private key or authority to replace the reviewed
+public key could forge approval. The real control remains owner review and gate.
+
+Exclusions apply to the **verdict**, not collection: every test still executes once,
+without bail or retries. Only failures with the exact authorized reporter identity
+can be omitted from the verdict. Infrastructure errors, unmatched failures and
+incomplete interrupted runs stay red. Observed failures remain in reports/ledger.
+Vitest identity: repository-relative suite `name` + ` > ` + assertion `fullName`.
+Playwright identity: spec `file` + ` > ` + suite titles joined by ` > ` + spec title
++ ` [projectName]` (including the JSON reporter's top-level suite title). No regex
+or glob matching. A reporter identity change requires fresh owner authorization.
+The stamp hashes policy, public key and helper, records earliest expiry and doubts
+after it; it never extends the ordinary 12-hour lifetime.
+
+`flaky-suspects.mjs [<ledger>] --json` emits a stable JSON array sorted by
+(project, tree, runner, test_id), with keys `project`, `tree`, `runner`, `test_id`,
+`passed`, `failed`, `attempts` (sorted unique strings). A suspect has both pass and
+fail on the same project/tree/runner/id; output is observation only, no retries.
+Mission Control display is a separate product change. Nightly execution is defined
+in [routines](../../plugin/docs/routines.md): disposable main-tip worktree, full gate,
+`PANDACORP_DISABLE_TEST_EXCLUSIONS=1` control, outcomes appended to main's ledger,
+cleanup on green/red, no stamp and no production authorization. All static/unit/browser
+checks are attempted even after test/static reds; missing infrastructure can still
+prevent a browser run and must be reported. No background browser landing tier.
+
+Decision 6C uses a committed project-owned `.pandacorp/gate-budget.json`:
+`{"schemaVersion":1,"addedTestTimeBudgetMs":{"vitest":30000,"playwright":30000},"baseline":{"<exact reporter id>":123}}`.
+On full scope, sum reporter test durations absent from the baseline independently
+for each runner. Above its cap is RED, naming new tests and the baseline command;
+old tests growing >25% and >=1000 ms warn only. Never fail on absolute stage time.
+A missing file warns and does not fail; malformed schema fails loudly. Legacy
+stage-only baselines require reviewed migration; their old stage warnings remain
+readable during rollout. Partial runs do not enforce added-test budgets.
+
+Default proposal: **30,000 ms per runner** for both measured projects. Using
+max(30 s, 2% stage time), Mission Control Vitest ~55 s => 30 s, Playwright 432 s
+=> 30 s; funko Vitest 457 s => 30 s, Playwright 896 s => 30 s. These are generous
+incremental caps, not deadlines; the supplied measurements do not justify tighter
+limits. Projects can review explicit different caps; no automatic increases.
+`node <plugin>/scripts/gate-budget-baseline.mjs <project> --from <report.json>`
+regenerates the baseline only from green full `gate-report.json.test_timings`, or a
+raw reporter matching those timings in the project's current green full report.
+Review/commit the refresh (scope, seed, counts and timings); never bless a red,
+partial or arbitrary raw reporter. Upgrade preserves policy and baseline.
+Verification: `test-test-exclusions.sh`, `test-nightly-excluded-run.sh`,
+`test-gate-budget.sh`; existing stamp/report/diagnosis/snapshot suites remain required.
