@@ -680,14 +680,13 @@ function ConceptEquipo(): React.JSX.Element {
         otra. Solo si ninguna puede trabajar se aparca el run con <Code>resumeAt</Code>. El lead
         actualiza <Code>get_usage</Code> antes de cada ola; leer el cupo no lanza un modelo. El cupo
         se reparte por ritmo de gasto: gana la cuenta que va más atrás respecto a un gasto constante
-        hasta su reinicio, y la preferencia por tarea solo decide cuando ambas van parejas (15 puntos
-        de margen). Una cuenta sin lectura nunca gana a una conocida con margen, y una que pasa del
-        85 % yendo adelantada queda al final; si ambas están así, gana la de menor uso máximo
-        ajustado. Una lectura antigua con reinicio
-        futuro conserva su porcentaje más 5 puntos de margen, o 10 si supera 24 horas. Ese margen se
-        aplica también al comprobar las reservas; confirmar un reinicio exige una lectura fresca. En
-        la cuenta Codex con solo ventana semanal, la ventana de 5 horas ausente es no aplicable, no
-        desconocida.
+        hasta su reinicio, y la preferencia por tarea solo decide cuando ambas van parejas (15
+        puntos de margen). Una cuenta sin lectura nunca gana a una conocida con margen, y una que
+        pasa del 85 % yendo adelantada queda al final; si ambas están así, gana la de menor uso
+        máximo ajustado. Una lectura antigua con reinicio futuro conserva su porcentaje más 5 puntos
+        de margen, o 10 si supera 24 horas. Ese margen se aplica también al comprobar las reservas;
+        confirmar un reinicio exige una lectura fresca. En la cuenta Codex con solo ventana semanal,
+        la ventana de 5 horas ausente es no aplicable, no desconocida.
       </Body>
       <NotePanel icon="grid" iconColor="var(--violet)">
         <B weight={500}>En Mission Control,</B> La Fragua muestra a los agentes activos con sus
