@@ -730,8 +730,14 @@ acceptance is needed. Consult caps bound reasoning cost, not owner dependence. P
 - **Launched project** = `status.yaml` `phase: release` and `deploy_target` not `internal` (the same test
   as `merge-queue.sh`). There, building on the branch needs no question and nothing is written on `main`
   (BUILD-7); landing is the production gate: exit 21 → `waiting_gate: production`, and the CLI **never
-  sets `PANDACORP_OWNER_RELEASE_OK`**. Only the owner's chat order lands it, by re-running `land` with
-  that variable. The "¿aterrizo?" question lists degraded reviews and pending deferred re-reviews.
+  sets or forwards `PANDACORP_OWNER_RELEASE_OK` to a detached job** (CLI and drive alike).
+  Ask for the explicit per-landing order at the START (DR-165 decision 3A). The background job
+  certifies and returns exit 21 even when the coordinator already holds that order. Only the
+  attended coordinator runs `publish_command` (the queue in the integration checkout, foreground,
+  with the variable on that command), then `land --epoch E` adopts the exact ordered ff/push/end-0
+  receipt without a second job/metadata commit. If the lease was released, resume the same run first.
+  Report actual historical review debt before publication; no extra order is needed when this landing
+  was already explicitly authorized at work start.
 - **pre-push hook (D29).** Untracked by design: `install-pre-push.mjs` writes a configured copy of
   `plugin/templates/shared/.pandacorp/hooks/pre-push`, marked `# pandacorp-pre-push v2`, into
   `git rev-parse --git-path hooks`, chaining an existing foreign hook as `pre-push.pandacorp-chained`. If

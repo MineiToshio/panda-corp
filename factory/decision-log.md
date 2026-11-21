@@ -1,5 +1,17 @@
 # Decision Log — Factory
 
+## 2026-11-21 - Close phase-1 independent review under DR-165
+
+[Build orchestration](standards/build-orchestration.md), [BUILD-13](standards/build-engine.md)
+and the [CLI](../plugin/docs/build-engine-cli.md) enforce attended production publication:
+orders obtained at work start never enter detached jobs; the foreground queue publishes and
+fenced land adopts the exact successful receipt. Active pre-push proof needs original process
+identity and attempt-owned lock evidence. Exit 21 preserves certification, runtime reports no
+longer block legacy main, and upgrade conformance includes executable mode before gates.
+[Plugin history](../plugin/docs/decision-log.md) records the five RED/GREEN regressions in
+**10.18.1** / overlay **9.7.1**. DR-138 explicit per-landing authorization remains unchanged.
+
+
 ## 2026-11-21 - Ship proposal 43 phase 1 under DR-165
 
 [Build orchestration](standards/build-orchestration.md) and the [registry](decisions/registry.yaml)

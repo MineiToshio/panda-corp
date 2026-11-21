@@ -55,6 +55,7 @@ factory/ideas/_drafts/**
 !/mission-control/.pandacorp/change-reconcile.mjs
 !/mission-control/.pandacorp/session-cleanup.sh
 !/mission-control/.pandacorp/worktree-bootstrap.sh
+!/mission-control/.pandacorp/with-merge-lock.sh
 !/mission-control/.pandacorp/pending-work.sh
 !/mission-control/.pandacorp/serve-once.sh
 !/mission-control/.pandacorp/doc-lint.sh

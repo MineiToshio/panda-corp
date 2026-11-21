@@ -763,19 +763,33 @@ await test("mq 21 (launched project): waiting_gate (exit 7), units waiting_gate/
   await assertNoReleaseVar(w); await assertMainUntouched(w, before);
 }));
 
-await test("owner's order: with PANDACORP_OWNER_RELEASE_OK=1 already in the CALLER's environment it reaches the merge-queue (pass-through), after a waiting_gate the units land and the card archives", async () => {
-  await withWorld("owner", {}, async (w) => {
-    await mqRound(w, "21"); await assertNoReleaseVar(w);
+await test("phase 1 review: CLI order never reaches a detached land; attended publication is adopted without a second job", async () => {
+  await withWorld("owner", {}, async w => {
     const owner = { ...w.env, PANDACORP_OWNER_RELEASE_OK: "1" }; w.env = owner; w.deps.env = owner;
     process.env.PANDACORP_OWNER_RELEASE_OK = "1";
     try {
-      await setMq(w, "0:ff"); const first = await callLand(w); eq(first.result, "running", "the owner's order spawns the landing again"); await w.jobs.runPending(); const second = await callLand(w);
-      eq((await readState(w)).landing_state, "landed", "run stores exact exit-0 landing state");
-      eq(second.landing_state, "landed", "landed output state");
-      eq(second.result, "landed", "result"); eq(second.sha, mainTip(w), "sha");
-      const logs = await stubLog(w); eq(logs.at(-1).owner_ok, "1", "the variable the OWNER set reached the merge-queue; the engine did not strip it");
-      const bu = unitOf(await readState(w), "u-build-wo-01-001"); eq(bu.state, "landed", "waiting_gate -> landed"); eq(bu.waiting_gate ?? null, null, "the gate marker is cleared");
-      ok((await cardState(w)).done, "card archived");
+      const { second } = await mqRound(w, "21");
+      eq((await stubLog(w)).at(-1).owner_ok, "UNSET", "CLI background job cannot inherit the owner's order");
+      eq(second.landing_state, "certified-awaiting-order", "background certification waits for attended publishing");
+      ok(second.publish_command?.includes("PANDACORP_OWNER_RELEASE_OK=1 bash .pandacorp/merge-queue.sh"), "foreground queue recipe returned to the attended coordinator");
+      const before = w.jobs.spawns.length;
+      // A foreground repair may add a certified tip above the existing landing metadata.
+      git(w.wt, ['commit','--allow-empty','-qm','chore: attended repair after certification']);
+      await setMq(w, "0:ff");
+      const foreground = spawnSync('/bin/bash', ['.pandacorp/merge-queue.sh'], { cwd: w.wt, env: owner, encoding: 'utf8' });
+      eq(foreground.status, 0, "attended queue succeeds");
+      const sha = laneTip(w), attempt = 'attended-fixture';
+      const common = { v:1, attempt, branch:w.branch, project:w.fx.root, ts:new Date().toISOString() };
+      const rows = [{...common,event:'start',head:sha,pid:process.pid,owner_release_ok:1}, {...common,event:'ff',sha,result:'ok'}, {...common,event:'push',sha,result:'ok'}, {...common,event:'end',exit:0}];
+      const log = path.join(w.fx.root,'.pandacorp/run/queue-log.jsonl');
+      await writeFile(log, await readFile(log,'utf8') + rows.map(r=>JSON.stringify(r)).join('\n')+'\n');
+      const adopted = await callLand(w);
+      eq(adopted.result, "landed", "foreground queue receipt adopted");
+      eq(adopted.sha, sha, "report must name the foreground published tip, not older landing metadata");
+      eq(shippedSha((await cardState(w)).text), sha, "card must name the same published receipt SHA");
+      eq(w.jobs.spawns.length, before, "no detached re-publication or new metadata commit");
+      eq((await readState(w)).landing_state, "landed", "run finishes landed");
+      ok((await cardState(w)).done, "card archived after attended publication");
     } finally { delete process.env.PANDACORP_OWNER_RELEASE_OK; }
   });
 });

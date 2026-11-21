@@ -29,7 +29,7 @@ cp "$FX/stamp" "$WT/.pandacorp/run/green-stamp"
 # An equal-tree base refresh may not renew the 12-hour certificate lifetime.
 old_epoch=$(( $(date +%s) - 11 * 3600 ))
 sed -i.bak "s/^at_epoch=.*/at_epoch=$old_epoch/" "$WT/.pandacorp/run/green-stamp"
-git -C "$APP" commit --allow-empty -qm 'metadata-only main advance' 
+git -C "$APP" commit --allow-empty -qm 'metadata-only main advance'
 check certified-stale
 run_queue
 test "$RC" = 21

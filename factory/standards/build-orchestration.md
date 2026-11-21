@@ -360,6 +360,15 @@ green/red. Declared run-output normalization must ship before this overlay is ap
 `e2e/.run-outputs` is a coordinator prerequisite). Gate start/end retain load/core observations;
 timeout reds under load greater than core count carry `classification: environment-suspect`.
 Engine state/journal records `landing_state` on land exit 21/0 and emits `ready` before its first queue attempt.
+All detached jobs (CLI/drive, including wrapper execution) remove the release-order variable.
+The attended coordinator holds the explicit per-landing order obtained at work start and publishes
+via the foreground queue command returned at exit 21; a subsequent fenced `land` adopts its exact
+ff/push/end-0 receipt. Exit 21 does not bootstrap: committed certified inputs stay unchanged.
+Active pre-push proof binds the attempt/token to the actual queue process through a process-owned
+POSIX record lock. It survives exec, is not inherited by forked children and releases on death;
+`F_GETLK` must name the recorded PID. A recycled PID with an old unlocked file cannot authenticate.
+Terminal end-0/13 receipts remain accepted. Legacy-main telemetry exemptions match the two exact
+JSONL paths plus the gate-report directory prefix, never similarly named owner WIP.
 Launched pre-push requires exact-commit queue ff evidence (live unfinished attempt or end 0/13),
 or the logged owner bypass; a transferred/main-checkout stamp is diagnosis only. DR-138 remains unchanged.
 Verification: `test-merge-queue-status.sh`, `test-merge-queue-requires-record.sh`,

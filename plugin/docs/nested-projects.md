@@ -78,7 +78,10 @@ committed; the integrator stages their existing main-checkout copies after apply
 
 ## Upgrade staging
 
-After regeneration and successful project verification, the upgrade skill runs
+Before canary/project gates, upgrade runs `stage-managed-overlay.mjs --project <root> --ensure-executable`:
+content-identical managed shell helpers (including with-merge-lock.sh) still need chmod and an OS
+execute-access check. This mode does not stage or require Git. After regeneration and successful
+project verification, the upgrade skill runs
 `stage-managed-overlay.mjs --project <project-root>` before its isolated upgrade commit. `--dry-run`
 reports the resolved project/repository roots, nested flag and exact existing managed paths without
 changing the index. The helper stages only the regular files in `MANAGED_OVERLAY_FILES`, using exact

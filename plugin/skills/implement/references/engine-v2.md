@@ -33,8 +33,10 @@ with `via:"session"`.
    While any unit, job or worker runs, loop `next --wait 60`: each call also renews the lease (ttl 30 min). A
    silent coordinator lets the lease expire, and that is a relay trigger for drive (`drive.md`).
 4. **Human gates are untouched**: production landing, spending money, deleting data, external communications. The
-   session never pushes and never runs `merge-queue.sh`; it sets `PANDACORP_OWNER_RELEASE_OK=1` only on the one
-   `land` the owner ordered in chat (`autonomy.md` §4).
+   session never pushes directly. Every detached job removes `PANDACORP_OWNER_RELEASE_OK`.
+   The one attended exception is exit 21: with the explicit per-landing order obtained at work start,
+   the coordinator runs the returned `publish_command` (foreground queue), then `land --epoch E`
+   to adopt its receipt; resume the same run first if its lease was released (`autonomy.md` §4).
 5. **One JSON line per call.** Read `ok`, `code` and the exit status of every CLI call; act on the table of §9.
 6. Fable (and `max` effort) is never chosen: dispatch exactly the `model`/`effort` the CLI returns (CONV-12).
 7. Owner-facing text is Spanish, without em or en dashes; this file and every committed artifact are English.

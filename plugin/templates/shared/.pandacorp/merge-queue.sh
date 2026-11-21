@@ -29,9 +29,9 @@
 # This self-contained library is also sourced by with-merge-lock.sh. Keeping the protocol
 # here lets older fixtures/installations copy the queue as a single executable.
 merge_lock_action() {
-  python3 - "$COMMON_DIR" "$LOCK_TOKEN" "$$" "${BRANCH:-command}" "${WORKTREE:-$PWD}" "$1" <<'LOCKPY'
-import datetime, fcntl, json, os, shutil, socket, sys, time, uuid
-common, token, pid, branch, worktree, action = sys.argv[1:]
+  python3 - "$COMMON_DIR" "$LOCK_TOKEN" "$$" "${BRANCH:-command}" "${WORKTREE:-$PWD}" "$1" "${QUEUE_ATTEMPT:-}" <<'LOCKPY'
+import datetime, fcntl, json, os, shutil, socket, subprocess, sys, time, uuid
+common, token, pid, branch, worktree, action, attempt = sys.argv[1:]
 pid = int(pid)
 host = socket.gethostname()
 lock = os.path.join(common, 'pandacorp-merge.lock')
@@ -109,6 +109,8 @@ with open(os.path.join(common, 'pandacorp-merge.guard'), 'a') as guard:
         if position == 1 and not os.path.exists(lock):
             os.mkdir(lock)
             owner = dict(pid=pid, hostname=host, token=token, branch=branch, worktree=worktree,
+                         attempt=attempt, process_identity=os.environ.get('PANDACORP_QUEUE_PROCESS_IDENTITY'),
+                         process_proof=os.environ.get('PANDACORP_QUEUE_PROCESS_PROOF'),
                          at=datetime.datetime.now(datetime.timezone.utc).isoformat())
             with open(os.path.join(lock, 'owner.json'), 'x') as f: json.dump(owner, f)
             with open(os.path.join(lock, 'owner'), 'w') as f: f.write(branch + ' @ ' + worktree + '\n')
@@ -135,7 +137,7 @@ MEDIANPY
     IFS='|' read -r state position holder <<< "$info"
     if [ "$state" = acquired ]; then
       queue_event lock_wait waited_s json "$((SECONDS - started))" position json "$position"
-      queue_event lock_acquired waited_s json "$((SECONDS - started))" position json "$position"
+      queue_event lock_acquired waited_s json "$((SECONDS - started))" position json "$position" lock_token str "$LOCK_TOKEN"
       return 0
     fi
     queue_event lock_wait waited_s json "$((SECONDS - started))" position json "$position" holder_start str "$holder" expected str "$expected"
@@ -169,6 +171,33 @@ stop_lock_refresh() {
 }
 # Sourcing exposes functions only; it never resolves topology, mutates Git or installs traps.
 if [ "${1:-}" = --lock-library ]; then return 0; fi
+
+# A POSIX record lock survives exec but is NOT inherited by forked children and is
+# released on process death. It therefore identifies the original queue process even
+# if its PID is later reused, without depending on ps (sandbox/macOS may deny it).
+# Status/library callers remain read-only. FD 7 belongs only to this process proof.
+if [ "${1:-}" != --status ] && [ "${PANDACORP_QUEUE_PROCESS_PID:-}" != "$$" ]; then
+  exec python3 - "$0" "$@" <<'PROOFPY'
+import fcntl, json, os, pathlib, subprocess, sys, uuid
+common = pathlib.Path(subprocess.check_output(['git','rev-parse','--git-common-dir'], text=True).strip()).resolve()
+identity = uuid.uuid4().hex
+name = 'pandacorp-merge.proof-' + identity
+file = common / name
+fd = os.open(file, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600)
+os.dup2(fd, 7, inheritable=True)
+if fd != 7: os.close(fd)
+# Acquire AFTER closing the original fd: closing any fd for this inode would
+# release this process's POSIX locks (unlike flock's inherited descriptor semantics).
+fcntl.lockf(7, fcntl.LOCK_EX | fcntl.LOCK_NB, 1, 0, os.SEEK_SET)
+os.write(7, json.dumps(dict(pid=os.getpid(), identity=identity)).encode())
+os.environ.update(PANDACORP_QUEUE_PROCESS_PID=str(os.getpid()),
+                  PANDACORP_QUEUE_PROCESS_IDENTITY=identity, PANDACORP_QUEUE_PROCESS_PROOF=name)
+try: os.execvp('bash', ['bash', *sys.argv[1:]])
+except BaseException:
+    file.unlink()
+    raise
+PROOFPY
+fi
 
 set -euo pipefail
 
@@ -259,7 +288,7 @@ queue_event() {
   local line
   if [ -z "$QUEUE_LOG" ] || [ -z "$QUEUE_ATTEMPT" ]; then queue_log_warning; return 0; fi
   if line=$(python3 - "$QUEUE_ATTEMPT" "$BRANCH" "$QUEUE_PROJECT" "$@" 2>/dev/null <<'LOGPY'
-import datetime, json, os, sys
+import datetime, json, os, subprocess, sys
 attempt, branch, project, event, *fields = sys.argv[1:]
 record = dict(v=1, attempt=attempt,
               ts=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z'),
@@ -267,6 +296,9 @@ record = dict(v=1, attempt=attempt,
 for i in range(0, len(fields), 3):
     key, kind, value = fields[i:i+3]
     record[key] = json.loads(value) if kind == 'json' else value
+if event == 'start':
+    record['process_identity'] = os.environ.get('PANDACORP_QUEUE_PROCESS_IDENTITY')
+    record['process_proof'] = os.environ.get('PANDACORP_QUEUE_PROCESS_PROOF')
 if event in ('gate_start', 'gate_end'):
     record['load'] = os.getloadavg()[0]
     record['ncpu'] = os.cpu_count() or 1
@@ -308,7 +340,7 @@ queue_log_init() {
   fi
   [ "${PANDACORP_OWNER_RELEASE_OK:-}" != 1 ] || owner=1
   head=$(git rev-parse HEAD 2>/dev/null) || { head=""; queue_log_warning; }
-  queue_event start head str "$head" launched json "$QUEUE_START_LAUNCHED" owner_release_ok json "$owner" pid json "$$"
+  queue_event start head str "$head" launched json "$QUEUE_START_LAUNCHED" owner_release_ok json "$owner" pid json "$$" worktree str "$WORKTREE"
 }
 queue_end() { queue_event end exit json "$1"; }
 queue_signal_exit() {
@@ -324,6 +356,15 @@ queue_finish() {
   trap '' TERM INT HUP
   [ "$QUEUE_SIGNAL_STATUS" = 0 ] || result="$QUEUE_SIGNAL_STATUS"
   queue_end "$result"
+  # Only our own uniquely named process proof; SIGKILL leaves an unlocked file,
+  # which can never authenticate another process after PID reuse.
+  case "${PANDACORP_QUEUE_PROCESS_IDENTITY:-}" in
+    ''|*[!0-9a-f]*) ;;
+    *) if [ "${#PANDACORP_QUEUE_PROCESS_IDENTITY}" = 32 ] &&
+          [ "${PANDACORP_QUEUE_PROCESS_PROOF:-}" = "pandacorp-merge.proof-$PANDACORP_QUEUE_PROCESS_IDENTITY" ]; then
+         rm -f "$COMMON_DIR/$PANDACORP_QUEUE_PROCESS_PROOF"
+       fi ;;
+  esac
   trap - EXIT
   exit "$result"
 }
@@ -575,7 +616,8 @@ cleanup() {
   stop_lock_refresh
   release_host_slot
   release
-  if [ "$result" -ne 0 ] && [ "$RESTORE_LOCAL" = 1 ] && [ -x ".pandacorp/worktree-bootstrap.sh" ]; then
+  # Exit 21 owns a reusable certificate: leave committed inputs/index bits intact.
+  if [ "$result" -ne 0 ] && [ "$result" -ne 21 ] && [ "$RESTORE_LOCAL" = 1 ] && [ -x ".pandacorp/worktree-bootstrap.sh" ]; then
     if ! bash .pandacorp/worktree-bootstrap.sh; then
       echo "merge-queue: WARNING: bootstrap failed; worktree may be left on the committed PORT without skip-worktree; re-run bash .pandacorp/worktree-bootstrap.sh manually" >&2
     fi
@@ -619,7 +661,7 @@ while i < len(entries):
         paths.append(entries[i]); i += 1
     for path in paths:
         # Only untracked runtime output is exempt; tracked owner edits remain WIP.
-        if entry[:2] == b'??' and (path == ignored[0] or path.startswith(ignored[1])): continue
+        if entry[:2] == b'??' and (path in ignored[:2] or path.startswith(ignored[2])): continue
         if not prefix or path in touched: sys.exit(0)
 sys.exit(1)
 BUSYPY

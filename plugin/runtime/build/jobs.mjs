@@ -37,6 +37,13 @@ const defaultIsAlive = (pid) => {
   try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; }
 };
 
+// Production permission belongs to one attended landing, never a detached continuation.
+export function backgroundJobEnv(env = process.env) {
+  const clean = { ...env };
+  delete clean.PANDACORP_OWNER_RELEASE_OK;
+  return clean;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Spawn
 // ---------------------------------------------------------------------------------------------
@@ -81,7 +88,7 @@ export async function spawnJob({ project, kind, cmd, cwd, unit = null, frd = nul
   }, { fs: deps.fs });
   await atomicWriteText(paths.jobOutFile(id), "", { fs: deps.fs });
   const child = (deps.spawn ?? nodeSpawn)(deps.execPath ?? process.execPath, [JOBS_ENTRY, WRAP_FLAG, dir], {
-    detached: true, stdio: "ignore", cwd: paths.project, env: deps.env ?? process.env,
+    detached: true, stdio: "ignore", cwd: paths.project, env: backgroundJobEnv(deps.env ?? process.env),
   });
   // A spawn failure surfaces asynchronously; the job then has no live pid and no exit file, i.e. `dead`.
   child.on?.("error", () => {});
@@ -274,7 +281,7 @@ export async function runJobWrapper(jobDir, deps = {}) {
     if (aborted) throw err("ABORTED", `terminated by ${aborted}`);
     code = await new Promise((resolve) => {
       try {
-        child = (deps.spawn ?? nodeSpawn)(spec.cmd[0], spec.cmd.slice(1), { cwd: spec.cwd, stdio: ["ignore", logFd.fd, logFd.fd], env: process.env });
+        child = (deps.spawn ?? nodeSpawn)(spec.cmd[0], spec.cmd.slice(1), { cwd: spec.cwd, stdio: ["ignore", logFd.fd, logFd.fd], env: backgroundJobEnv(process.env) });
       } catch (e) { log(`cannot start: ${e.message}`).then(() => resolve(127)); return; }
       child.on("error", (e) => { log(`cannot start: ${e.message}`).then(() => resolve(127)); });
       child.on("close", (exitCode, signal) => resolve(exitCode ?? signalExitCode(signal)));

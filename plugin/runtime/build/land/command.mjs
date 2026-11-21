@@ -4,7 +4,7 @@ import { nowIso, sha256Hex } from "../fsx.mjs";
 import { resolveInside } from "../paths.mjs";
 import { fencedTwoPhase, upsertJob } from "../state.mjs";
 import { assessBatch, cardCompletedBy, environmentRetryExhausted, setStatusScalars } from "./batch.mjs";
-import { harvestLandJob, prepareLandHarvest } from "./harvest.mjs";
+import { completeAttendedLanding, harvestLandJob, prepareAttendedLanding, prepareLandHarvest } from "./harvest.mjs";
 import {
   MERGE_QUEUE, OUTPUT_TAIL_BYTES, RELEASE_VAR, WO_KINDS, assertCleanWorktree, defaultBranchOf, dropLandingMetadata, emitQueueReady, err, git, gitOk, landingCodeTip,
   handbackResult, markerLine, nothing, resolveLandDeps, result,
@@ -32,6 +32,8 @@ async function phase1(ctx, d) {
 
 async function rebaseOntoMain(intent, ctx, d) {
   const { root } = intent;
+  const attended = await prepareAttendedLanding(ctx, await ctx.readState(), d);
+  if (attended) return { attended };
   await assertCleanWorktree(d, root);
   await dropLandingMetadata(d, root, ctx.runId);
   const defaultBranch = await defaultBranchOf(d, root);
@@ -98,9 +100,9 @@ async function writeLandingCommit({ root, runId, landable, slug, tip }, d) {
   return gitOk(d, root, ["rev-parse", "HEAD"], "rev-parse");
 }
 
-function landJobEnv(env, actor) {
+function landJobEnv(env) {
   const jobEnv = { ...env };
-  if (actor === "drive") delete jobEnv[RELEASE_VAR];
+  delete jobEnv[RELEASE_VAR];
   return jobEnv;
 }
 
@@ -108,7 +110,7 @@ async function spawnLandJob(ctx, state, root, d) {
   const jobs = d.jobs ?? (await import("../jobs.mjs"));
   const seq = state.jobs.filter((j) => j.kind === "land").length + 1;
   const spec = { project: ctx.project, kind: "land", cmd: ["bash", MERGE_QUEUE], cwd: root, jobId: `land-${ctx.epoch}-${seq}` };
-  const rec = await jobs.spawnJob(spec, { ...d, env: landJobEnv(d.env, ctx.actor) });
+  const rec = await jobs.spawnJob(spec, { ...d, env: landJobEnv(d.env) });
   return {
     id: rec?.id ?? spec.jobId, kind: "land", unit: null, frd: null, pid: rec?.pid ?? null, cwd: rec?.cwd ?? root, h_slot: false,
     started_at: rec?.started_at ?? nowIso(d), state: "running", exit: null, worker_id: null,
@@ -116,6 +118,7 @@ async function spawnLandJob(ctx, state, root, d) {
 }
 
 async function phase2(work, intent, ctx, d) {
+  if (work.attended) return completeAttendedLanding(ctx, work.attended, d);
   if (work.conflict !== undefined) {
     await ctx.appendEvent({ type: "handback", data: { reason: "rebase_conflict", cause: "landing", detail: work.conflict } });
     return handbackResult("rebase_conflict");

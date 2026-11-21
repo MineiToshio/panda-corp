@@ -111,11 +111,33 @@ hook(repo, sha, extra={**order, 'PANDACORP_OWNER_UNGATED_PUSH':'1'}, code=1)
 audit.rmdir()
 ok('bypass logs exact commit/time/escaped reason and fails closed on audit write failure')
 
-for terminal in (0, 13, None):
+for terminal in (0, 13):
     write_log(project, events(project, sha, terminal))
     hook(repo, sha)
     hook(repo, sha, extra={}, code=1)
-ok('same-attempt ff accepts end 0/13 or a live start PID without end; still requires order')
+ok('same-attempt ff accepts end 0/13; still requires order')
+# A recycled live PID is not the process/lock that produced an unfinished ff.
+write_log(project, events(project, sha, None, os.getpid()))
+hook(repo, sha, code=1)
+ok('unfinished attempt with unrelated live PID and no owned lock refused')
+# Even plausible lock metadata must match the process birth identity and attempt token.
+rows = events(project, sha, None, os.getpid())
+rows[0]['process_identity'] = 'a' * 32
+rows[0]['process_proof'] = 'pandacorp-merge.proof-' + 'a' * 32
+rows[0]['worktree'] = str(repo)
+rows.insert(1, {**rows[0], 'event':'lock_acquired', 'lock_token':'old-token'})
+common_dir = repo / '.git'
+lock = common_dir / 'pandacorp-merge.lock'
+lock.mkdir()
+(lock / 'owner.json').write_text(json.dumps(dict(pid=os.getpid(), token='old-token', attempt=rows[0]['attempt'], process_identity='a'*32, process_proof=rows[0]['process_proof'], branch=rows[0]['branch'], worktree=str(repo), hostname=__import__('socket').gethostname())))
+proof = common_dir / rows[0]['process_proof']
+proof.write_text(json.dumps(dict(pid=os.getpid(), identity='a'*32)))
+try:
+    write_log(project, rows)
+    hook(repo, sha, code=1)
+finally:
+    (lock / 'owner.json').unlink(); lock.rmdir(); proof.unlink()
+ok('reused PID with stale process identity refused even with matching old lock metadata')
 with subprocess.Popen(['true']) as child: child.wait()
 dead_pid = child.pid
 for label, rows in (
@@ -201,7 +223,21 @@ for prefix in ('', 'nested/app'):
         (root / '.env.local').write_text('FIXTURE_CHECKOUT=' + label + '\n')
         (root / 'e2e/output').mkdir()
         (root / 'e2e/output/result.json').write_text(label)
-    result = run(wp, '/bin/bash', '.pandacorp/merge-queue.sh', extra=order)
+    # A different waiting attempt may append while the current owner is pushing.
+    # Its ID must not replace the ID of the active proof group under validation.
+    live_hook = repo / '.git/hooks/pre-push'
+    actual_hook = live_hook.with_name('pre-push.actual')
+    live_hook.rename(actual_hook)
+    waiter = dict(v=1, attempt=str(uuid.uuid4()), event='start', branch='concurrent-waiter', project=str(project),
+                  ts=datetime.datetime.now(datetime.timezone.utc).isoformat(), head=sha, pid=os.getpid(), launched=1, owner_release_ok=0)
+    payload = shlex.quote(json.dumps(waiter))
+    logpath = shlex.quote(str(project / '.pandacorp/run/queue-log.jsonl'))
+    live_hook.write_text("#!/bin/sh\nprintf '%s\\n' " + payload + " >> " + logpath + "\nexec " + shlex.quote(str(actual_hook)) + ' "$@"\n')
+    live_hook.chmod(0o755)
+    try:
+        result = run(wp, '/bin/bash', '.pandacorp/merge-queue.sh', extra=order)
+    finally:
+        live_hook.unlink(); actual_hook.rename(live_hook)
     assert git(remote, 'rev-parse', 'main') == sha
     rows = [json.loads(line) for line in (project / '.pandacorp/run/queue-log.jsonl').read_text().splitlines()]
     assert [(r['sha'], r['result']) for r in rows if r['event'] == 'ff'] == [(sha, 'ok')]

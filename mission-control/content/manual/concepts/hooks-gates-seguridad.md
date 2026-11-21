@@ -22,3 +22,11 @@ A green gate whose stamp record was refused cannot ff (exit 11). Diagnosis uses
 `verify.sh --diagnose-unit`: all static checks and Vitest without bail, under the host slot, no stamp or browser policy change.
 Before re-queueing a repair, run static checks plus all Vitest; for a browser red, the failing spec plus static checks.
 Queue and diagnosis test outcomes are shared in main's `test-outcomes.jsonl`; same-tree pass/fail is a flaky suspect, never an automatic exclusion or rerun.
+
+## Attended publication after certification
+
+Obtain the explicit per-landing order at work start. Every detached job removes the release
+variable; its queue stops at exit 21 and preserves the committed certified inputs. The attended
+coordinator runs the returned foreground `publish_command`, then `land` adopts the exact receipt.
+Active pre-push proof requires the original process's kernel lock plus the queue attempt/token;
+a reused PID is insufficient. Upgrade checks executable mode before canaries, even for equal content.

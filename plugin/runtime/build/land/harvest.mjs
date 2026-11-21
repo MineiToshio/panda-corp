@@ -58,7 +58,7 @@ async function onLanded(ctx, state, job, mqExit, d) {
     throw err("ENGINE_FAILURE", `merge-queue exit ${mqExit} but ${defaultBranch} does not contain ${branch}: landing not verified`);
   }
   const where = await locateLanding(ctx, root, defaultBranch, d);
-  const sha = where.metaSha ?? where.mainTip;
+  const sha = job?.attended_sha ?? where.metaSha ?? where.mainTip;
   const batch = assessBatch(state);
   let next = { ...await moveUnits(ctx, state, batch.landable, "landed", { waiting_gate: null }), landing_state: mqExit === 0 ? "landed" : "implemented-uncertified" };
   const card = where.changeSlug && where.changeSlug === state.scope?.card ? await archiveLandedCard(ctx.project, where.changeSlug, sha, d) : null;
@@ -154,7 +154,54 @@ async function onGateRed(ctx, state, job, plan, d) {
 async function onGate(ctx, state) {
   const batch = assessBatch(state);
   const next = await moveUnits(ctx, state, batch.landable, "waiting_gate", { waiting_gate: "production" });
-  return { state: next, output: { result: "waiting_gate", landing_state: "certified-awaiting-order", reason: null, mq_exit: 21, sha: null, notes_es: "main de este proyecto lanzado es producción. Solo se aterriza con tu orden en el chat: PANDACORP_OWNER_RELEASE_OK=1 sobre ese único comando land." }, exit: 7 };
+  const root = "'" + state.integration.worktree.replaceAll("'", "'\\''") + "'";
+  return { state: next, output: { result: "waiting_gate", landing_state: "certified-awaiting-order", reason: null, mq_exit: 21, sha: null,
+    publish_command: `cd ${root} && PANDACORP_OWNER_RELEASE_OK=1 bash .pandacorp/merge-queue.sh`,
+    notes_es: "Certificado, espera la publicación atendida. El job nunca hereda autorización. Con la orden explícita de este aterrizaje, el coordinador ejecuta publish_command en primer plano y después land para registrar el recibo; si la lease ya se liberó, primero reanuda el mismo run." }, exit: 7 };
+}
+
+/** Observe a foreground publication after a background exit 21. No new metadata or job.
+ * Exact branch SHA, same-attempt ordered ff/push/end-0 and explicit order are required;
+ * onLanded independently re-verifies main ancestry before changing the run state.
+ */
+export async function prepareAttendedLanding(ctx, state, d) {
+  if (!state.jobs.some(job => job.kind === "land" && job.state === "done" && job.exit === 21)) return null;
+  let text;
+  try { text = await d.fs.readFile(path.join(ctx.project, ".pandacorp/run/queue-log.jsonl"), "utf8"); }
+  catch (error) { if (error.code === "ENOENT") return null; throw error; }
+  const attempts = new Map();
+  const lines = text.split("\n");
+  if (lines.at(-1) === "") lines.pop();
+  for (const line of lines) {
+    let row;
+    try { row = JSON.parse(line); } catch { throw err("INVALID_STATE", "malformed queue receipt for attended landing"); }
+    if (!row || row.v !== 1 || typeof row.attempt !== "string" || typeof row.project !== "string") throw err("INVALID_STATE", "invalid queue receipt");
+    if (path.resolve(row.project) !== path.resolve(ctx.project)) continue;
+    const rows = attempts.get(row.attempt) ?? []; rows.push(row); attempts.set(row.attempt, rows);
+  }
+  const tip = await gitOk(d, state.integration.worktree, ["rev-parse", "HEAD"], "rev-parse");
+  const branch = ctx.paths.integrationBranch(ctx.runId);
+  for (const [attempt, rows] of attempts) {
+    const starts = rows.map((r,i) => r.event === "start" ? i : -1).filter(i => i >= 0);
+    const ends = rows.map((r,i) => r.event === "end" ? i : -1).filter(i => i >= 0);
+    if (starts.length !== 1 || ends.length !== 1) continue;
+    const start = starts[0], end = ends[0];
+    if (rows[start].branch !== branch || rows[start].owner_release_ok !== 1 || rows[end].exit !== 0) continue;
+    const ff = rows.findIndex((r,i) => i > start && r.event === "ff" && r.sha === tip && r.result === "ok");
+    const pushed = rows.findIndex((r,i) => i > ff && ff > start && r.event === "push" && r.sha === tip && r.result === "ok");
+    if (pushed > ff && end > pushed) return { tip, attempt };
+  }
+  return null;
+}
+
+export async function completeAttendedLanding(ctx, receipt, d) {
+  const state = await ctx.readState();
+  const current = await prepareAttendedLanding(ctx, state, d);
+  if (!current || current.tip !== receipt.tip || current.attempt !== receipt.attempt) throw err("INVALID_STATE", "attended landing receipt or branch changed");
+  const applied = await onLanded(ctx, state, { attended_sha: receipt.tip }, 0, d);
+  await ctx.writeState(applied.state);
+  await cleanupRunWorktrees({ project: ctx.project, state: applied.state, mode: "landed" }, d);
+  return { exit: applied.exit, output: { ok:true, cmd:"land", ...applied.output, landing_state:applied.state.landing_state, attended:true } };
 }
 
 /** Identity of the facts used by a work-phase harvest; any concurrent change invalidates that plan. */

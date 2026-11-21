@@ -1,5 +1,26 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-21 - Repair all five independent phase-1 review failures
+
+Plugin **10.18.1** / overlay **9.7.1** close the review's five reproduced defects.
+Every detached job strips production authorization at both boundaries; the attended coordinator
+publishes through the foreground queue and the engine adopts its exact ff/push/end-0 receipt
+without a new metadata commit or job. Decision 3A still asks for explicit per-landing order at work start.
+Active pre-push evidence now requires the queue lock token/attempt plus a process-owned POSIX
+record-lock identity (exec retains it, fork does not inherit it, death releases it). This avoids
+PID reuse and works where sandbox process inspection is denied; terminal 0/13 receipts remain valid.
+Exit 21 skips bootstrap, preserving stamp inputs/index bits. Legacy-main telemetry exemptions
+use exact JSONL paths and the report-directory prefix. Upgrade repairs and verifies executable
+modes even when content matches, before canary/project gates; staging repeats the check.
+
+Canonical contracts: [build orchestration](../../factory/standards/build-orchestration.md),
+[BUILD-13](../../factory/standards/build-engine.md), [CLI landing](build-engine-cli.md#311-land),
+and [upgrade conformance](../skills/upgrade/SKILL.md). Manual/guide/implement references match.
+Regression evidence: new `test-phase1-review.mjs` and `test-merge-queue-review.sh`, plus extended
+land/pre-push tests; each finding was RED before its correction. The status test's trailing space
+is removed. No product copies are upgraded and no commit is made by this repair session.
+
+
 ## 2026-11-21 - Ship proposal 43 phase 1: one meaning of done
 
 Plugin **10.18.0** / overlay **9.7.0** enact DR-165 phase 1 and the DR-141, DR-146

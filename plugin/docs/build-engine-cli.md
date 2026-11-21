@@ -579,7 +579,14 @@ tests/docs/reviews/audits/consults never charge that budget (N16). Verification:
 
 Output: `{"ok":true,"cmd":"land","result":"landed|waiting_gate|handback|nothing_to_land|running","reason":null,"mq_exit":0,"sha":"<sha>"}` (`mq_exit` and `sha` are `null` when not applicable).
 
-The owner's production order for a launched project is only `PANDACORP_OWNER_RELEASE_OK=1 ... land --epoch <E>`, set on that one command by the owner's chat order (BUILD-13).
+Every detached job strips `PANDACORP_OWNER_RELEASE_OK`, at spawn and wrapper execution, for CLI and drive.
+Ask for the explicit per-landing order at the start (DR-165 3A); it stays with the attended coordinator.
+Exit 21 returns `publish_command`: run that queue command in the foreground, with the variable on
+that one command only, once this landing has the owner's explicit order. Exit 21 keeps committed
+certified inputs intact (no bootstrap/skip-worktree restoration). The next `land --epoch <E>` adopts
+only an exact-current-SHA, same-project/branch, ordered ff/push/end-0 receipt with the explicit order
+logged; main ancestry is independently checked before state/card closure. No new detached job or
+landing metadata is created. Resume the same run first if its lease was already released.
 
 ### 3.12 `doubt open|answer`
 
@@ -641,7 +648,7 @@ untracked inbox behavior stays unchanged. Verification: `plugin/scripts/test-bui
 | `parked` | the doubt id of a unit parked as `owner_question` (also the id written to `.pandacorp/inbox/decisions.md`) | an option id of the doubt (a JSON string) | the doubt record gets `decision:{value, why:"owner answer", decided_by:"owner"}` and `step:"decided"`; the parked unit and its dependents leave `parked`. A built-on-assumption park (the doubt has `assumption{option, branch}`): value equal to the option means `assumption_accepted`, anything else `assumption_discarded`. A unit that already carries an assumption (`parked:"built_on_assumption"`) never roots a second one: when it raises another doubt it parks on that doubt (`parked:"owner_question"`, `pending_answer` = the second doubt) and keeps `assumed_on:<first doubt>`; answering the second doubt restores `parked:"built_on_assumption"` from `assumed_on`, and rejecting the first discards every unit carrying it, even one parked on another question (DEC-7: it is re-queued at attempt+1, the second doubt stays open in the inbox and answering it releases nothing; DEC-8). Units built on assumption (`parked:"built_on_assumption"`) are dispatched from and integrated into `lane/<run_id>/assume-<doubt>` (worktree `build/wt/assume-<doubt>`); G2, review and G3 of that work run after acceptance on the integration branch |
 | `gate` | `g-<unit>` of a unit at a `money`, `delete` or `external` `waiting_gate` (listed in `status` and `finish` `open_questions`) | `true` (OK) or `false` (refused) | recorded as the owner's explicit OK; `true`: the unit leaves `waiting_gate`; `false`: the unit is handed back (reason "owner refused gate") |
 
-A question of the `production` gate is not answerable here: landing on the default branch of a launched project is ordered only through `PANDACORP_OWNER_RELEASE_OK=1 ... land --epoch <E>` (BUILD-13); `answer` for it exits 6 with a `message` saying so. An answer given through `/pandacorp:decide` during a live run is also recorded with `answer` (the decide skill routes ids in `open_questions` through this command).
+A question of the `production` gate is not answerable here: landing on the default branch of a launched project is ordered only through the attended foreground queue command returned at exit 21 (BUILD-13, section 3.11); `answer` for it exits 6 with a `message` saying so. An answer given through `/pandacorp:decide` during a live run is also recorded with `answer` (the decide skill routes ids in `open_questions` through this command).
 
 Effects, in order: validate id and value; write `state.answers[<id>] = <value>`; journal `answer_recorded` (`data:{question, kind, value, units}`); update every affected unit (table below). `--wait` of a waiting `next` returns early on `answer_recorded`.
 

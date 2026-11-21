@@ -84,13 +84,13 @@ touches_scope() {
 }
 
 # The queue pushes after ff, BEFORE it can write push/end. Accept an exact-sha successful ff
-# with its own start and either no end + a still-live start.pid, or end.exit 0/13 (13 permits
+# with its own start and either no end + the same live process identity and owned attempt lock, or end.exit 0/13 (13 permits
 # retrying a failed publication of the already-gated sha). Never join different attempts.
 # The queue writes ff under its merge lock; the hook must not acquire that same lock and deadlock
 # its parent. These local records are evidence, not a defense against deliberate log forgery.
 queue_proof() {
   python3 - "$1" "$2" <<'PY_QUEUE'
-import json, os, pathlib, sys, uuid
+import ctypes, fcntl, json, os, pathlib, re, socket, subprocess, sys, uuid
 try:
     root, sha = pathlib.Path(sys.argv[1]).resolve(), sys.argv[2]
     attempts = {}
@@ -103,7 +103,7 @@ try:
         if pathlib.Path(row['project']).resolve() != root:
             continue
         attempts.setdefault(attempt, []).append(row)
-    for rows in attempts.values():
+    for attempt, rows in attempts.items():
         starts = [(i, r) for i, r in enumerate(rows) if r.get('event') == 'start']
         ends = [(i, r) for i, r in enumerate(rows) if r.get('event') == 'end']
         if len(starts) != 1 or len(ends) > 1:
@@ -118,14 +118,48 @@ try:
             if end_index > max(matches) and type(end.get('exit')) is int and end['exit'] in (0, 13):
                 sys.exit(0)
         else:
+            # An unfinished ff is usable only by the exact process still owning THIS
+            # attempt's lock. kill(pid,0) alone accepts a recycled unrelated PID.
             pid = start.get('pid')
-            if type(pid) is int and pid > 0:
-                try:
-                    os.kill(pid, 0)
+            acquired = [(i, r) for i, r in enumerate(rows) if r.get('event') == 'lock_acquired']
+            if type(pid) is not int or pid <= 0 or len(acquired) != 1:
+                continue
+            lock_index, locked = acquired[0]
+            if not start_index < lock_index < min(matches):
+                continue
+            clean_env = {k:v for k,v in os.environ.items() if k not in ('GIT_DIR','GIT_WORK_TREE','GIT_INDEX_FILE','GIT_COMMON_DIR','GIT_PREFIX','GIT_OBJECT_DIRECTORY')}
+            common = subprocess.check_output(['git','-C',str(root),'rev-parse','--git-common-dir'],
+                                             env=clean_env, text=True, timeout=2).strip()
+            owner = json.loads((root / common / 'pandacorp-merge.lock/owner.json').read_text())
+            token, identity, proof_name = locked.get('lock_token'), start.get('process_identity'), start.get('process_proof')
+            if (not isinstance(token, str) or not token or not isinstance(identity, str) or not identity
+                    or owner.get('token') != token or owner.get('attempt') != attempt
+                    or owner.get('pid') != pid or owner.get('process_identity') != identity
+                    or owner.get('process_proof') != proof_name
+                    or owner.get('hostname') != socket.gethostname()
+                    or owner.get('branch') != start.get('branch')
+                    or not start.get('worktree') or owner.get('worktree') != start['worktree']):
+                continue
+            if not isinstance(proof_name, str) or not re.fullmatch(r'pandacorp-merge\.proof-[a-f0-9]{32}', proof_name):
+                continue
+            proof = root / common / proof_name
+            if proof.is_symlink(): continue
+            with proof.open('rb') as file:
+                receipt = json.load(file)
+                if receipt.get('pid') != pid or receipt.get('identity') != identity: continue
+                # F_GETLK returns the PID owning a POSIX write lock, or F_UNLCK.
+                # Record locks are process-owned, not inherited by orphaned gate
+                # children. An old unlocked proof + recycled PID cannot pass.
+                class Flock(ctypes.Structure):
+                    _fields_ = ([('start',ctypes.c_longlong),('length',ctypes.c_longlong),('pid',ctypes.c_int),('type',ctypes.c_short),('whence',ctypes.c_short)]
+                                if sys.platform == 'darwin' else
+                                [('type',ctypes.c_short),('whence',ctypes.c_short),('start',ctypes.c_longlong),('length',ctypes.c_longlong),('pid',ctypes.c_int)])
+                query = Flock()
+                query.type, query.whence, query.start, query.length = fcntl.F_WRLCK, os.SEEK_SET, 0, 1
+                held = Flock.from_buffer_copy(fcntl.fcntl(file.fileno(), fcntl.F_GETLK, bytes(query)))
+                if held.type == fcntl.F_WRLCK and held.pid == pid:
                     sys.exit(0)
-                except OSError:
-                    pass
-except (OSError, ValueError, KeyError, TypeError):
+except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
     pass
 sys.exit(1)
 PY_QUEUE

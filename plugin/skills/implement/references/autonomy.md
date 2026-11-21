@@ -161,13 +161,15 @@ script, message text) so the owner's OK is one word.
    sigue." Codex: say it in the session; drive notifies through macOS. Mission Control shows the banner.
 2. **Money, deletion, external communication**: the owner's OK or refusal is `pb answer` kind `gate` (§1.4); the CLI
    releases the unit with the OK in its brief. The session never performs a gated action itself.
-3. **Production** (launched project: `phase: release` and `deploy_target` not `internal`; landing on the default
-   branch is production, DR-138): the run ends on `lane/<run_id>/integration` with its gates green and waits for "aterriza". The
-   question "¿aterrizo?" lists only historical review debt actually present in the ledger; fallback or valid same-model fresh-context
-   review creates no degradation or mandatory re-review. Landing with historical debt is the owner's informed choice. Only on the owner's chat order for that landing:
-   `PANDACORP_OWNER_RELEASE_OK=1 pb land --epoch <E>` (the variable on that one command only). If the run is not
-   live, `pb start --resume` first, then the same `land` with the new epoch. Never through `answer`.
-4. Never set `PANDACORP_OWNER_RELEASE_OK` for anything else, never push, never bypass the `pre-push` hook.
+3. **Production** (launched project: `phase: release`, deploy_target not internal; DR-138): ask for
+   the explicit order for this landing at the START (DR-165 3A), listing actual historical review debt.
+   Keep that order in the attended coordinator; ALL detached jobs strip the variable. The land job
+   stops at exit 21, `certified-awaiting-order`, with committed inputs intact. With this landing's
+   explicit order already held (or obtained now if deferred), run its returned `publish_command`
+   in the FOREGROUND: `cd <integration> && PANDACORP_OWNER_RELEASE_OK=1 bash .pandacorp/merge-queue.sh`.
+   Then `pb land --epoch <E>` adopts the exact ff/push/end-0 receipt without another job or metadata
+   commit. If the run lease was released, `pb start --resume` first; never through `answer`.
+4. Never export `PANDACORP_OWNER_RELEASE_OK` to jobs or subsequent landings, push directly, or bypass the hook.
 
 ## 5. Risk zone without a prior "sí"
 
