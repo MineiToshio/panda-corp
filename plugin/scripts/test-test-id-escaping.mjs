@@ -68,3 +68,15 @@ test('owner renewal replaces the same legacy multiline exclusion without touchin
  const old=signed(entry),other=signed({...entry,id:'another test'}),renewed=signed({...entry,id:expected,id_encoding:encoding});
  const result=replaceAuthorizedExclusion([old,other],renewed);assert.equal(result.length,2);assert.deepEqual(result,[other,renewed]);assert.equal(result[0],other);
 });
+
+test('an ordinal exclusion matches only its duplicate case and keeps the other failure red',()=>{
+ const r={numTotalTests:2,numPassedTests:1,numFailedTests:1,numPendingTests:0,numTodoTests:0,testResults:[{name:file,assertionResults:[{fullName:'same title',status:'passed',duration:1},{fullName:'same title',status:'failed',duration:1}]}]};
+ const id=file+' > same title [#2]',e={...entry,id,id_encoding:encoding};
+ const old=readFileSync(join(project,'.pandacorp/run/test-outcomes.jsonl'));
+ writeFileSync(join(project,'.pandacorp/run/test-outcomes.jsonl'),ledger([row,{...row,status:'passed',attempt:'second'},...['passed','failed'].map((status,i)=>({...row,test_id:id,id_encoding:encoding,status,attempt:'ordinal-'+i}))]));store(e);
+ const input=join(project,'.pandacorp/run/ordinal.json');
+ const proof=()=>{writeFileSync(input,JSON.stringify(r));writeFileSync(input+'.errors.json',JSON.stringify({id_encoding:encoding,reason:'failed',plannedModules:1,completedModules:1,tests:policy.reporterTests('vitest',r,project).map(t=>({id:t.id,status:t.status,declaredSkip:false})),unhandledErrors:[]}));};
+ const evaluate=()=>spawnSync(process.execPath,[join(root,'plugin/templates/shared/.pandacorp/test-gate-policy.mjs'),'evaluate',project,'vitest',input,'1'],{encoding:'utf8',env:{...process.env,PANDACORP_GATE_FULL:'0'}});
+ try {proof();const green=evaluate();assert.equal(green.status,0,green.stderr);r.numPassedTests=0;r.numFailedTests=2;r.testResults[0].assertionResults[0].status='failed';proof();assert.notEqual(evaluate().status,0);}
+ finally{writeFileSync(join(project,'.pandacorp/run/test-outcomes.jsonl'),old);store({...entry,id:expected,id_encoding:encoding});}
+});

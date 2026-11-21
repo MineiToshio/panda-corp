@@ -1,5 +1,9 @@
 # Decision Log — Factory
 
+## 2026-11-21 — Accept legitimate repeated parameterized titles by construction
+
+The coordinator amended the identity contract after the second real Mission Control gate rejection. The [registry](decisions/registry.yaml) and [build orchestration](standards/build-orchestration.md) now require a shared full-name constructor plus deterministic declaration ordinals, rather than rejecting repeated names or a leaf whose ancestors supply the identity. NUL/undefined/truly empty identities still fail. Literal suffix titles cannot collide with generated ordinals. Reviewed exclusions/baselines use the same exact suffixed ids. A real 5547-test report, including multiline names, duplicate titles and an empty leaf, is replayed through inventory, class proof, policy and baseline before close-out.
+
 ## 2026-11-21 — Preserve multiline reporter identities without weakening validation
 
 The real Mission Control queue gate found four valid multiline parameterized test names. [Build orchestration](standards/build-orchestration.md) now defines the shared reversible encoding and explicit format markers across policy, exclusion matching, budget baselines and the flaky ledger. Marked ids are validated rather than re-escaped; legacy raw data and signatures remain readable without mutation. Literal backslash+n remains distinct from a newline, and NUL/empty/undefined still fail. Managed Mission Control copies/status are updated under the coordinator's explicit authorization; no test names, owner evidence or queue policy are weakened.

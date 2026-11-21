@@ -1,5 +1,17 @@
 # Decision Log — Mission Control
 
+## 2026-11-21 — Upgrade full-name/declaration identities to overlay 9.9.5
+
+Sync policy/helper and verify byte-identical to factory templates and bump only
+overlay_version. Raw class tasks and JSON now share full-name construction and
+ordinal assignment; repeated parameterized titles are valid and use [#1], [#2], ...
+in declaration order (location first). An empty leaf with a meaningful ancestor is
+valid; NUL/undefined/truly empty full names still fail. The supplied real 5547-test
+JSON corpus replays with 5547 unique ids and zero policy/inventory/baseline errors.
+Scoped native validation also passes 72 tests across the four affected files, with
+72 unique ids and matching installed class proof. No application test names, owner
+evidence, commit or production state are changed.
+
 ## 2026-11-21 — Upgrade test identity handling to overlay 9.9.4
 
 Sync `.pandacorp/test-gate-policy.mjs` and `verify.sh` byte-identical to the factory

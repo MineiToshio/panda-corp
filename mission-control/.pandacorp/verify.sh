@@ -1225,11 +1225,11 @@ append_test_outcomes() {
   [ "$LEDGER" -eq 1 ] || return 0
   node --input-type=module - "$1" "$GATE_FRAGMENTS_DIR/$1.json" "$OUTCOMES_TREE" "$VITEST_SEED" <<'OUTCOMESJS' || { echo 'verify: WARNING test-outcomes ledger incomplete (reporter/append error)' >&2; [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" != 1 ] || NIGHTLY_RED=1; }
 import {readFileSync,mkdirSync,openSync,writeSync,closeSync,realpathSync} from 'node:fs';
-import {resolve,relative,isAbsolute,join} from 'node:path';
+import {resolve,join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {execFileSync,spawnSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
-const {vitestTestId,playwrightTestId,TEST_ID_ENCODING}=await import(pathToFileURL(resolve('.pandacorp/test-gate-policy.mjs')));
+const {reporterIdentities,TEST_ID_ENCODING}=await import(pathToFileURL(resolve('.pandacorp/test-gate-policy.mjs')));
 const [runner,filename,tree,seed]=process.argv.slice(2);
 const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim();
 const prefix=git('rev-parse','--show-prefix');
@@ -1248,20 +1248,11 @@ function add(test_id,status,worker,retry=0){
  status=({timedOut:'failed',interrupted:'failed',pending:'skipped',todo:'skipped',disabled:'skipped'})[status] ?? status;
  rows.push({v:1,ts:new Date().toISOString(),test_id,id_encoding:TEST_ID_ENCODING,status,tree,seed:Number(seed),worker:worker ?? null,project,attempt,runner,retry});
 }
-if(runner==='vitest')for(const suite of report.testResults){
- const file=isAbsolute(suite.name)?relative(process.cwd(),suite.name):suite.name;
- for(const test of suite.assertionResults)add(vitestTestId(file,test.fullName),test.status,test.workerId);
-}else{
- const visit=(suite,parents)=>{
-  if(typeof suite.title!=='string')throw new Error('invalid suite identity');
-  const names=parents.concat(suite.title?[suite.title]:[]);
-  for(const spec of suite.specs ?? [])for(const test of spec.tests){
-   const id=playwrightTestId(spec.file,names,spec.title,test.projectName);
-   for(const result of test.results)add(id,result.status,result.workerIndex,result.retry ?? 0);
-  }
-  for(const child of suite.suites ?? [])visit(child,names);
- };
- for(const suite of report.suites)visit(suite,[]);
+// Identity assignment is shared with JSON policy and the class reporter, including
+// declaration ordinals. Multiple results remain observations of the SAME test id.
+for(const {id,source:test} of reporterIdentities(runner,report,process.cwd())) {
+ if(runner==='vitest')add(id,test.status,test.workerId);
+ else for(const result of test.results)add(id,result.status,result.workerIndex,result.retry ?? 0);
 }
 const target=join(project,'.pandacorp/run/test-outcomes.jsonl');mkdirSync(join(project,'.pandacorp/run'),{recursive:true});
 const fd=openSync(target,'a',0o600);

@@ -22,12 +22,74 @@ export function readTestId(value, encoding) {
   if (encodeTestId(decoded) !== value) throw new Error('non-canonical encoded test id');
   return value;
 }
-export function vitestTestId(file, fullName) {
-  return encodeTestId(nonempty(file,'Vitest file') + ' > ' + nonempty(fullName,'Vitest fullName'));
+// One identity constructor for JSON, raw runner tasks, Playwright and the ledger.
+// A leaf may be empty when its ancestor gives the FULL name meaning; undefined/NUL
+// components or a truly empty full name remain invalid.
+export function testIdentity({runner,file,fullName,ancestors=[],title,projectName}) {
+  nonempty(file,'test file');
+  if (runner === 'vitest') {
+    if (fullName === undefined) {
+      nonempty(title,'Vitest leaf title',true);
+      for (const name of ancestors) nonempty(name,'suite title',true);
+      fullName=(title ? [...ancestors,title] : ancestors).join(' ');
+    }
+    return encodeTestId(file + ' > ' + nonempty(fullName,'Vitest fullName'));
+  }
+  if (runner !== 'playwright') throw new Error('unknown identity runner');
+  for (const name of ancestors) nonempty(name,'suite title',true);
+  return encodeTestId(file + ' > ' + [...ancestors,nonempty(title,'spec title')].join(' > ') + ' [' + nonempty(projectName,'projectName',true) + ']');
 }
-export function playwrightTestId(file, parents, title, projectName) {
-  for (const name of parents) nonempty(name,'suite title',true);
-  return encodeTestId(nonempty(file,'spec file') + ' > ' + [...parents,nonempty(title,'spec title')].join(' > ') + ' [' + nonempty(projectName,'projectName',true) + ']');
+export function vitestTestId(file,fullName) {
+  // Preserve the old single-base-id API; inventories use assignTestIdentities below.
+  nonempty(fullName,'Vitest fullName');
+  return testIdentity({runner:'vitest',file,fullName});
+}
+export function playwrightTestId(file,parents,title,projectName) {
+  return testIdentity({runner:'playwright',file,ancestors:parents,title,projectName});
+}
+export function assignTestIdentities(entries) {
+  const groups=new Map(),natural=new Set(),used=new Set();
+  const result=entries.map((entry,index)=>({...entry,index,base:testIdentity(entry.identity)}));
+  for (const entry of result) {
+    natural.add(entry.base);
+    const key=JSON.stringify([entry.identity.runner,entry.identity.file,entry.base]);
+    const group=groups.get(key) ?? [];group.push(entry);groups.set(key,group);
+  }
+  const located=entry=>Number.isInteger(entry.location?.line) && entry.location.line>0 && Number.isInteger(entry.location?.column) && entry.location.column>=0;
+  for (const group of groups.values()) {
+    // Mixed/missing locations keep reporter declaration order; equal positions (it.each)
+    // use that same order as a tie-break. Never number in execution/shuffle order.
+    const ordered=group.every(located)?[...group].sort((a,b)=>a.location.line-b.location.line || a.location.column-b.location.column || a.index-b.index):group;
+    for (const [index,entry] of ordered.entries()) {
+      const suffix=' [#'+(index+1)+']';
+      let id=entry.base+(group.length>1?suffix:'');
+      // Reserve literal titles like "same [#2]" before allocating generated suffixes.
+      while (used.has(id) || (id!==entry.base && natural.has(id))) id+=suffix;
+      entry.id=id;used.add(id);
+    }
+  }
+  return result;
+}
+export function reporterIdentities(runner,report,project) {
+  const entries=[];
+  if (runner==='vitest') {
+    for (const suite of array(report.testResults,'testResults')) {
+      const name=nonempty(suite?.name,'Vitest file'),file=isAbsolute(name)?relative(project,name):name;
+      for (const test of array(suite.assertionResults,'assertionResults')) {
+        nonempty(test?.fullName,'Vitest fullName');
+        entries.push({source:test,location:test.location,identity:{runner,file,fullName:test.fullName}});
+      }
+    }
+  } else if (runner==='playwright') {
+    const visit=(suite,parents)=>{
+      nonempty(suite?.title,'suite title',true);
+      const ancestors=parents.concat(suite.title?[suite.title]:[]);
+      for (const spec of array(Object.hasOwn(suite,'specs')?suite.specs:[],'specs')) for (const test of array(spec.tests,'tests')) entries.push({source:test,location:{line:spec.line,column:spec.column},identity:{runner,file:spec.file,ancestors,title:spec.title,projectName:test.projectName}});
+      for (const child of array(Object.hasOwn(suite,'suites')?suite.suites:[],'suites')) visit(child,ancestors);
+    };
+    for (const suite of array(report.suites,'suites')) visit(suite,[]);
+  } else throw new Error('unknown identity runner');
+  return assignTestIdentities(entries);
 }
 export function binding(entry) {
   const fields=[entry.id, entry.reason, entry.authorized_by, entry.authorized_at, entry.expires, 'owner-confirmed-v1'];
@@ -144,6 +206,7 @@ function count(value, label) {
 export function reporterTests(runner, report, project, {allowEmpty = false} = {}) {
   if (!report || typeof report !== 'object') throw new Error('invalid reporter object');
   const rows = [], ids = new Set();
+  const identityBySource=new Map(reporterIdentities(runner,report,project).map(entry=>[entry.source,entry.id]));
   const add = (id, status, duration) => {
     readTestId(id,TEST_ID_ENCODING);
     if (ids.has(id)) throw new Error('duplicate reporter identity: ' + id);
@@ -155,14 +218,9 @@ export function reporterTests(runner, report, project, {allowEmpty = false} = {}
     rows.push({id, runner, duration_ms: ms, status});
   };
   if (runner === 'vitest') {
-    const files = new Set();
     for (const suite of array(report.testResults, 'testResults')) {
-      const name = nonempty(suite?.name, 'Vitest file');
-      const file = isAbsolute(name) ? relative(project, name) : name;
-      if (files.has(file)) throw new Error('duplicate Vitest module');
-      files.add(file);
       if (!array(suite.assertionResults,'assertionResults').length) throw new Error('empty Vitest module inventory');
-      for (const t of array(suite.assertionResults, 'assertionResults')) add(vitestTestId(file,t?.fullName), t.status, t.duration);
+      for (const t of array(suite.assertionResults, 'assertionResults')) add(identityBySource.get(t), t.status, t.duration);
     }
     const total = count(report.numTotalTests, 'numTotalTests');
     const actual = status => rows.filter(t => status.includes(t.status)).length;
@@ -176,14 +234,12 @@ export function reporterTests(runner, report, project, {allowEmpty = false} = {}
       const before = rows.length;
       const names = parents.concat(suite.title ? [suite.title] : []);
       for (const spec of array(Object.hasOwn(suite,'specs') ? suite.specs : [], 'specs')) {
-        const file = nonempty(spec?.file, 'spec file'), title = nonempty(spec.title, 'spec title');
         const tests = array(spec.tests, 'tests');
         if (!tests.length) throw new Error('spec has empty test inventory');
         for (const t of tests) {
-          const projectName = nonempty(t?.projectName, 'projectName', true);
           if (!['passed','failed','skipped'].includes(t.expectedStatus) || !Object.hasOwn(counts,t.status)) throw new Error('invalid Playwright expectedStatus/outcome');
           counts[t.status]++;
-          const id = playwrightTestId(file,names,title,projectName);
+          const id = identityBySource.get(t);
           const results = array(t.results, 'results');
           if (t.status === 'skipped' && t.expectedStatus === 'skipped' && !results.length) { add(id,'skipped',0); continue; }
           if (results.length !== 1 || t.status === 'flaky') throw new Error('incomplete or retried Playwright inventory');
@@ -210,6 +266,7 @@ export function reporterTests(runner, report, project, {allowEmpty = false} = {}
 // https://vitest.dev/api/advanced/reporters.html#ontestrunend
 export default class GateErrorReporter {
   plannedModules = null;
+  project = process.cwd();
   declared = new Set();
   onTestRunStart(specifications) { this.plannedModules = specifications.length; }
   tasks(module) {
@@ -224,19 +281,26 @@ export default class GateErrorReporter {
     walk(module.task);
     return rows;
   }
-  id(module, task) {
-    const names = [nonempty(task.name,'Vitest task name')];
-    for (let suite=task.suite; suite; suite=suite.suite) names.unshift(nonempty(suite.name,'suite title',true));
-    return vitestTestId(relative(process.cwd(),module.moduleId),names.join(' '));
+  entries(modules) {
+    return assignTestIdentities(modules.flatMap(module=>this.tasks(module).map(task=>{
+      const ancestors=[];
+      for (let suite=task.suite;suite;suite=suite.suite) ancestors.unshift(suite.name);
+      return {source:task,location:task.location,identity:{runner:'vitest',file:relative(this.project,module.moduleId),ancestors,title:task.name}};
+    })));
+  }
+  id(module,task) {
+    const entry=this.entries([module]).find(entry=>entry.source===task);
+    if (!entry) throw new Error('task absent from module inventory');
+    return entry.id;
   }
   onTestModuleCollected(module) {
-    for (const task of this.tasks(module)) if (['skip','todo'].includes(task.mode)) this.declared.add(this.id(module,task));
+    for (const {source:task} of this.entries([module])) if (['skip','todo'].includes(task.mode)) this.declared.add(task.id ?? task);
   }
   onTestRunEnd(modules, unhandledErrors, reason) {
     const file = process.env.PANDACORP_VITEST_ERRORS_FILE;
     if (!file) throw new Error('missing gate error reporter destination');
     const statuses = {pass:'passed',fail:'failed',skip:'skipped',todo:'todo',run:'pending',queued:'pending',only:'pending'};
-    const tests = modules.flatMap(module => this.tasks(module).map(task => ({id:this.id(module,task),status:statuses[task.result?.state ?? task.mode] ?? 'pending',declaredSkip:this.declared.has(this.id(module,task)) || (task.result?.state === 'skip' && task.result.pending === true)})));
+    const tests=this.entries(modules).map(({id,source:task})=>({id,status:statuses[task.result?.state ?? task.mode] ?? 'pending',declaredSkip:this.declared.has(task.id ?? task) || (task.result?.state==='skip' && task.result.pending===true)}));
     writeFileSync(file,JSON.stringify({id_encoding:TEST_ID_ENCODING,reason,plannedModules:this.plannedModules,completedModules:modules.length,tests,unhandledErrors:unhandledErrors.map(e=>String(e.message ?? e))}));
   }
 }

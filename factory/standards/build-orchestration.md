@@ -736,6 +736,23 @@ shared builders as policy/proof; install verify and the helper together on upgra
 signing, pass the canonical decoded JSON value (e.g. extract with `jq -r '.[0].test_id'`),
 not its JSON serialization/outer quotes. A reporter identity change requires fresh
 owner authorization; reversible encoding migration alone preserves legacy signatures.
+
+Repeated full names (`it.each` without a formatting placeholder) are valid. One shared
+`testIdentity` constructor builds the FULL name for JSON, raw class tasks, Vitest,
+Playwright and the ledger. An empty leaf title is permitted when ancestors make the
+full name nonempty; undefined/NUL components or a truly empty full name still fail.
+The shared inventory resolver assigns **every member** of a duplicate-name group
+in the same file a ` [#1]`, ` [#2]`, ... suffix. Order by line/column when ALL group
+members have locations; use reporter declaration order when locations are absent or
+mixed, and as the tie-break for identical locations (parameterized cases). Never use
+execution/shuffle/completion order. Reserve literal suffix-shaped titles first;
+if a generated id collides with one, repeat that ordinal suffix until unique.
+All matching/storage consumers use the resulting ids, including class proof,
+ledger, exclusions and reviewed budget baselines. Adding/removing/reordering a
+same-name case may change its ordinal: repair/review the corresponding baseline
+or reauthorize the exact exclusion, never alias an ambiguous old unsuffixed id to
+a new case. Corpus replay must cover real multiline names, duplicate titles and
+empty leaves with meaningful ancestors before closing an identity change.
 The stamp hashes policy, pinned factory-main key and helper, records earliest expiry and doubts
 after it; it never extends the ordinary 12-hour lifetime.
 

@@ -64,7 +64,7 @@ for(const [name,edit] of [
  ['undefined project identity',r=>delete r.suites[0].specs[0].tests[0].projectName],
  ['empty tests collection',r=>r.suites[0].specs[0].tests=[]],
  ['summary count mismatch',r=>r.stats.unexpected=9],
- ['duplicate identity',r=>r.suites[0].specs.push(structuredClone(r.suites[0].specs[0]))],
+ ['duplicate cases with an inconsistent summary count',r=>r.suites[0].specs.push(structuredClone(r.suites[0].specs[0]))],
 ]) test('2: reject '+name,()=>{const r=browser();edit(r);assert.throws(()=>policy.reporterTests('playwright',r,project));});
 test('2: Vitest total inventory must agree and identities cannot be undefined',()=>{const r={numTotalTests:2,numPassedTests:1,numFailedTests:0,numPendingTests:0,numTodoTests:0,testResults:[{name:'a.test.ts',assertionResults:[{fullName:'one',status:'passed',duration:1}]}]};assert.throws(()=>policy.reporterTests('vitest',r,project));r.numTotalTests=1;delete r.testResults[0].assertionResults[0].fullName;assert.throws(()=>policy.reporterTests('vitest',r,project));});
 test('3: an intentionally skipped browser test does not veto another valid exclusion',()=>{const r=browser();r.suites[0].specs.push({file:'a.spec.ts',title:'declared skip',tests:[{projectName:'desktop',expectedStatus:'skipped',status:'skipped',results:[{status:'skipped',duration:0,retry:0}]}]});r.stats.skipped++;const result=evaluate(r);assert.equal(result.status,0,result.stderr);});

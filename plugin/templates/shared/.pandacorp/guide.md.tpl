@@ -168,3 +168,5 @@ Committed `.pandacorp/gate-budget.json` schemaVersion 1 sets `addedTestTimeBudge
 Valid legacy stage budgets keep warning-only timing capture for one full run; generate schemaVersion 1 from that green-full report and review/commit it before added-test enforcement. Reporter collection/identity/count validation precedes exclusions and budgets; declared skips remain in the inventory, interruptions never pass.
 
 Test IDs use reversible json-string-v1 escaping, including newlines and literal backslashes. Canonical ids carry an encoding marker; legacy unmarked ids are read as raw without rewriting signed exclusions. Owner signing accepts the decoded canonical value from flaky-suspects JSON, not the serialized JSON string.
+
+Duplicate same-file full names receive deterministic [#1], [#2], ... ids from the shared declaration-order resolver (location first, reporter order fallback/tie-break). Empty leaf titles are valid when ancestors supply a meaningful full name. Use the resulting exact ids for owner exclusions and reviewed baselines; changing a repeated-case list can change ordinals.

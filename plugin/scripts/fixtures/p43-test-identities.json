@@ -1,0 +1,142 @@
+{
+  "source": "Excerpt of coordinator-provided mc-vitest-real.json (5547 tests); exact problematic names and ancestor titles, project-relative paths.",
+  "testResults": [
+    {
+      "name": "src/lib/navigation/_tests/persistent-navigation.adversarial.reviewer.test.ts",
+      "assertionResults": [
+        {
+          "fullName": "independent persistent navigation boundary rejects unsupported workspace tails: \"another\"",
+          "title": "rejects unsupported workspace tails: \"another\"",
+          "ancestorTitles": [
+            "independent persistent navigation boundary"
+          ],
+          "status": "passed",
+          "duration": 2.044166999999902
+        },
+        {
+          "fullName": "independent persistent navigation boundary rejects unsupported workspace tails: \"another\"",
+          "title": "rejects unsupported workspace tails: \"another\"",
+          "ancestorTitles": [
+            "independent persistent navigation boundary"
+          ],
+          "status": "passed",
+          "duration": 0.31579099999999016
+        },
+        {
+          "fullName": "independent persistent navigation boundary rejects unsupported workspace tails: \"another\"",
+          "title": "rejects unsupported workspace tails: \"another\"",
+          "ancestorTitles": [
+            "independent persistent navigation boundary"
+          ],
+          "status": "passed",
+          "duration": 0.3155829999999469
+        },
+        {
+          "fullName": "independent persistent navigation boundary rejects unsupported workspace tails: \"another\"",
+          "title": "rejects unsupported workspace tails: \"another\"",
+          "ancestorTitles": [
+            "independent persistent navigation boundary"
+          ],
+          "status": "passed",
+          "duration": 0.21137499999997544
+        }
+      ]
+    },
+    {
+      "name": "src/components/modules/Spec/_tests/integration-patches.test.tsx",
+      "assertionResults": [
+        {
+          "fullName": "renders structured work-order reasons in Spanish",
+          "title": "renders structured work-order reasons in Spanish",
+          "ancestorTitles": [],
+          "status": "passed",
+          "duration": 72.58795799999996
+        },
+        {
+          "fullName": "renders structured work-order reasons in Spanish",
+          "title": "renders structured work-order reasons in Spanish",
+          "ancestorTitles": [],
+          "status": "passed",
+          "duration": 13.218166999999994
+        }
+      ]
+    },
+    {
+      "name": "src/app/projects/[slug]/_components/tab-summary/_tests/readSummary.test.ts",
+      "assertionResults": [
+        {
+          "fullName": "Resumen read errors AC-04-014.5: malformed decisions are explicit failures: ## Unknown decision heading\ntext",
+          "title": "AC-04-014.5: malformed decisions are explicit failures: ## Unknown decision heading\ntext",
+          "ancestorTitles": [
+            "Resumen read errors"
+          ],
+          "status": "passed",
+          "duration": 29.058708000000024
+        }
+      ]
+    },
+    {
+      "name": "src/app/projects/[slug]/_observability/FrdDriftBadge/_tests/FrdDriftBadge.test.tsx",
+      "assertionResults": [
+        {
+          "fullName": "AC-12-003.3 drift source and presentation shows nothing for absent or empty drift",
+          "title": "shows nothing for absent or empty drift",
+          "ancestorTitles": [
+            "AC-12-003.3 drift source and presentation"
+          ],
+          "status": "passed",
+          "duration": 0.791667000000075
+        },
+        {
+          "fullName": "AC-12-003.3 drift source and presentation shows nothing for absent or empty drift",
+          "title": "shows nothing for absent or empty drift",
+          "ancestorTitles": [
+            "AC-12-003.3 drift source and presentation"
+          ],
+          "status": "passed",
+          "duration": 0.6038750000000164
+        }
+      ]
+    },
+    {
+      "name": "src/lib/backlog/_tests/backlog.test.ts",
+      "assertionResults": [
+        {
+          "fullName": "AC-22-004.1: reports malformed file ---\nid: BL-0001\ntype: bug\n\ntitle: Fallo real del motor\nstatus: open\nseverity: p1\nopened: 2026-06-30\nclosed:\nsource: LESSON-0002\ncloses:\nlinks: [LESSON-0002, DR-073]\n---\n**Problem:** something is wrong.\n",
+          "title": "AC-22-004.1: reports malformed file ---\nid: BL-0001\ntype: bug\n\ntitle: Fallo real del motor\nstatus: open\nseverity: p1\nopened: 2026-06-30\nclosed:\nsource: LESSON-0002\ncloses:\nlinks: [LESSON-0002, DR-073]\n---\n**Problem:** something is wrong.\n",
+          "ancestorTitles": [],
+          "status": "passed",
+          "duration": 2.3404999999999916
+        },
+        {
+          "fullName": "AC-22-004.1: reports malformed file ---\nid: BL-0001\ntype: bug\narea: build-engine\ntitle: Fallo real del motor\nstatus: unknown\nseverity: p1\nopened: 2026-06-30\nclosed:\nsource: LESSON-0002\ncloses:\nlinks: [LESSON-0002, DR-073]\n---\n**Problem:** something is wrong.\n",
+          "title": "AC-22-004.1: reports malformed file ---\nid: BL-0001\ntype: bug\narea: build-engine\ntitle: Fallo real del motor\nstatus: unknown\nseverity: p1\nopened: 2026-06-30\nclosed:\nsource: LESSON-0002\ncloses:\nlinks: [LESSON-0002, DR-073]\n---\n**Problem:** something is wrong.\n",
+          "ancestorTitles": [],
+          "status": "passed",
+          "duration": 2.243832999999995
+        },
+        {
+          "fullName": "AC-22-004.1: reports malformed file ---\nid: BL-0001\ntype: bug\narea: build-engine\ntitle: Fallo real del motor\nstatus: open\nseverity: p9\nopened: 2026-06-30\nclosed:\nsource: LESSON-0002\ncloses:\nlinks: [LESSON-0002, DR-073]\n---\n**Problem:** something is wrong.\n",
+          "title": "AC-22-004.1: reports malformed file ---\nid: BL-0001\ntype: bug\narea: build-engine\ntitle: Fallo real del motor\nstatus: open\nseverity: p9\nopened: 2026-06-30\nclosed:\nsource: LESSON-0002\ncloses:\nlinks: [LESSON-0002, DR-073]\n---\n**Problem:** something is wrong.\n",
+          "ancestorTitles": [],
+          "status": "passed",
+          "duration": 1.2934170000000336
+        }
+      ]
+    },
+    {
+      "name": "src/lib/docs/_tests/activity.resolved-in-file.reviewer.test.ts",
+      "assertionResults": [
+        {
+          "fullName": "IF-04-decisions-resolved engine log rule",
+          "title": "",
+          "ancestorTitles": [
+            "IF-04-decisions-resolved engine log rule"
+          ],
+          "status": "passed",
+          "duration": 0.0367920000000197
+        }
+      ]
+    }
+  ]
+}

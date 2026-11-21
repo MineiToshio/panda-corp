@@ -16,7 +16,7 @@ if [ "$1" = vitest ]; then
   for arg in "$@"; do case "$arg" in --outputFile=*) out=${arg#--outputFile=};; esac; done
   echo 'FAIL src/_tests/a.test.ts > first failure'
   echo 'FAIL src/_tests/a.test.ts > second failure'
-  printf '%s' '{"testResults":[{"name":"src/_tests/a.test.ts","assertionResults":[{"fullName":"first failure\nparameter","status":"failed"},{"fullName":"second failure","status":"failed"}]}]}' > "$out"
+  printf '%s' '{"testResults":[{"name":"src/_tests/a.test.ts","assertionResults":[{"fullName":"first failure\nparameter","status":"failed"},{"fullName":"second failure","status":"failed"},{"fullName":"first failure\nparameter","status":"failed"}]}]}' > "$out"
   exit 1
 fi
 exit 0
@@ -36,8 +36,9 @@ wt,main=map(pathlib.Path,sys.argv[1:]);r=json.loads((wt/'.pandacorp/run/gate-rep
 assert r['scope']=='partial' and not r['green']
 assert {'biome','tsc','vitest'} <= {g['name'] for g in r['subgates'] if g['exit']}
 rows=list(map(json.loads,(main/'.pandacorp/run/test-outcomes.jsonl').read_text().splitlines()))
-assert rows[0]['test_id']=='src/_tests/a.test.ts > first failure\\nparameter' and rows[0].get('id_encoding')=='json-string-v1'
-assert len(rows)==2 and all(r['status']=='failed' and r['worker'] is None and r['attempt'] for r in rows)
+assert rows[0]['test_id']=='src/_tests/a.test.ts > first failure\\nparameter [#1]' and rows[0].get('id_encoding')=='json-string-v1'
+assert rows[2]['test_id']=='src/_tests/a.test.ts > first failure\\nparameter [#2]'
+assert len(rows)==3 and all(r['status']=='failed' and r['worker'] is None and r['attempt'] for r in rows)
 assert not (wt/'.pandacorp/run/test-outcomes.jsonl').exists()
 PY
 test "$(find "$PANDACORP_HOST_DIR/h-slots" -name 'slot-*' | wc -l | tr -d ' ')" = 0
@@ -49,6 +50,6 @@ test "$rc" != 0
 python3 - "$APP" <<'PY_DIRTY'
 import json,pathlib,sys
 rows=list(map(json.loads,(pathlib.Path(sys.argv[1])/'.pandacorp/run/test-outcomes.jsonl').read_text().splitlines()))
-assert len(rows)==4 and rows[0]['tree'] != rows[2]['tree'] and len(rows[2]['tree'])==64
+assert len(rows)==6 and rows[0]['tree'] != rows[3]['tree'] and len(rows[3]['tree'])==64
 PY_DIRTY
 echo 'RESULT: 7 passed, 0 failed (static/unit failures, browser unchanged, no stamp, ledger, slot, dirty-tree identity)'
