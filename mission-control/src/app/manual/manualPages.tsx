@@ -935,13 +935,13 @@ function ConceptHooks(): React.JSX.Element {
         Para conservar esa velocidad al crecer la suite, cada spec nueva o modificada lleva una
         clasificación revisada: paralela de lectura, aislada por worker o serial, y cobertura móvil.
         Si falta, el gate avisa y conserva la ejecución serial en ambas plataformas. Vitest usa Node
-        por defecto y carga DOM y jest-dom solo donde se declaran. El presupuesto bloquea cuando
-        el tiempo sumado de tests nuevos supera su límite revisado; las demoras de tests existentes
+        por defecto y carga DOM y jest-dom solo donde se declaran. El presupuesto bloquea cuando el
+        tiempo sumado de tests nuevos supera su límite revisado; las demoras de tests existentes
         solo avisan (DR-159). Solo Mission Control interno admite exclusiones por ID exacto con
-        firma del owner y vencimiento de hasta 14 días. La clave se fija en main de la fábrica;
-        cada firma requiere su aprobación en el diálogo de Keychain de macOS. Los agentes nunca las autorizan. Las pruebas
-        siguen ejecutándose; el sello vence con la primera exclusión. El pase nocturno desde main
-        ignora las exclusiones, registra resultados y nunca certifica (DR-165).
+        firma del owner y vencimiento de hasta 14 días. La clave se fija en main de la fábrica; cada
+        firma requiere su aprobación en el diálogo de Keychain de macOS. Los agentes nunca las
+        autorizan. Las pruebas siguen ejecutándose; el sello vence con la primera exclusión. El pase
+        nocturno desde main ignora las exclusiones, registra resultados y nunca certifica (DR-165).
       </Lead>
       <HooksDiagram />
       <NotePanel icon="lock">
