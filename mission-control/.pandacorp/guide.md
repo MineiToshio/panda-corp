@@ -68,7 +68,7 @@ bypass. The agent never sets the bypass. A transferred stamp's main-checkout che
 (the whole unit suite) before re-queueing. After a Playwright red, run the failing spec plus all static checks.
 `bash .pandacorp/verify.sh --diagnose-unit` reports all static/unit failures under the host slot, never
 certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandacorp/run/test-outcomes.jsonl`;
-`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or exclusions.
+`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or autonomous exclusions. DR-165/5B permits reviewed owner-signed exact-id suspect verdict exclusions only in internal Mission Control (maximum 14 days); agents NEVER run authorize-exclusion.mjs, even with a TTY.
 
 **Attended production publication.** Ask for the explicit per-landing order at work start; every
 background job strips the release variable even when the CLI caller has it. At exit 21 the queue
@@ -158,3 +158,11 @@ Keep branch refs and all unsafe resources; report kept/failed paths and retained
 Never force-remove, erase index.lock, sweep other sessions/shared caches or alter sandbox
 permissions. If the coordinator cannot write the shared .git/parents, report that capability
 blocker and preserve work. The rule cannot override native runtime approval or filesystem denial.
+
+## Gate policy: owner exclusions and incremental budget
+
+Browser gates remain blocking. Only `package.json.name: mission-control` + `deploy_target: internal` may opt into committed `.pandacorp/test-exclusions.json`; each exact ledger suspect needs signed owner confirmation and UTC expiry <=14 days. Agents NEVER run `authorize-exclusion.mjs`, even with a TTY, or fabricate approval. Owner bootstraps the macOS login Keychain once (`authorize-exclusion.mjs --bootstrap-owner <factory-main-checkout>`), reviews/commits the public key on factory main and approves each signing read in the macOS dialog. Verification pins that committed-main key and prints its fingerprint; branch/project keys never authorize. No private-key file; non-macOS signing refuses. Agents never bootstrap, sign, answer dialogs or rotate the key. Exclusions stay inert until owner bootstrap. Tests still execute; authorized failures alone can leave the verdict. Stamp expires at earliest expiry. The nightly routine uses a disposable main-tip worktree without exclusions, writes observations and never a stamp.
+
+Committed `.pandacorp/gate-budget.json` schemaVersion 1 sets `addedTestTimeBudgetMs` (vitest/playwright, default proposal 30000 each) and exact-id duration `baseline`. Full scope fails when summed new-test time exceeds its cap; slower old tests and a missing file warn. Absolute stage time never fails. Refresh only from green full reporter evidence with `gate-budget-baseline.mjs` in a reviewed commit; upgrades preserve it.
+
+Valid legacy stage budgets keep warning-only timing capture for one full run; generate schemaVersion 1 from that green-full report and review/commit it before added-test enforcement. Reporter collection/identity/count validation precedes exclusions and budgets; declared skips remain in the inventory, interruptions never pass.

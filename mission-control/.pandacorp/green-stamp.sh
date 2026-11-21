@@ -134,13 +134,18 @@ def group(name, paths):
     for path in sorted(set(map(Path, paths))):
         add(h, path)
     groups[name] = h.hexdigest()
-group('verify', ['.pandacorp/verify.sh', '.pandacorp/green-stamp.sh', '.pandacorp/vitest-policy.ts'])
+group('verify', ['.pandacorp/verify.sh', '.pandacorp/green-stamp.sh', '.pandacorp/vitest-policy.ts', '.pandacorp/test-gate-policy.mjs', '.pandacorp/test-exclusions.json', '.pandacorp/exclusion-owner.pub', '.pandacorp/gate-budget.json'])
 group('dependencies', ['node_modules/.modules.yaml', 'node_modules/.pnpm/lock.yaml',
                        'node_modules/.package-lock.json', 'package.json', *Path('.').glob('*lock*')])
 group('e2e', ['e2e', 'playwright.config.ts', '.pandacorp/run/lane.env', '.pandacorp/run/e2e-port', *Path('.').glob('.env*')])
+policy = Path('.pandacorp/test-exclusions.json')
+if policy.exists():
+    import json
+    if json.loads(policy.read_text()):
+        groups['owner_exclusion_key'] = subprocess.check_output(['node', '.pandacorp/test-gate-policy.mjs', 'owner-key', '.'], text=True).strip()
 groups['node'] = hashlib.sha256(subprocess.check_output(['node', '--version'])).hexdigest()
 controls = {
-    'PANDACORP_VERIFY_OWNER_PID', 'PANDACORP_STAMP_CHECK_PID', 'PANDACORP_VITEST_SEED',
+    'PANDACORP_VITEST_ERRORS_FILE', 'PANDACORP_DISABLE_TEST_EXCLUSIONS', 'PANDACORP_GATE_FULL', 'PANDACORP_VERIFY_OWNER_PID', 'PANDACORP_STAMP_CHECK_PID', 'PANDACORP_VITEST_SEED',
     'PANDACORP_VERIFY_NO_BAIL', 'PANDACORP_E2E_SERVER', 'PANDACORP_E2E_TIER',
     'PANDACORP_E2E_SLOT_PORTS', 'PANDACORP_E2E_COMMITTED_PORT', 'PANDACORP_E2E_SLOTS',
     'PANDACORP_E2E_WORKERS', 'PANDACORP_E2E_CERTIFICATION', 'PANDACORP_STOP_GATE',
@@ -185,6 +190,7 @@ case "${1:-}" in
     printf '%s:%s\n' "$tree" "$inputs"
     ;;
   record)
+    [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" != 1 ] || doubt "nightly controls never certify"
     token="${2:-}"
     tree="${token%%:*}"
     start_inputs="${token#*:}"
@@ -197,6 +203,11 @@ case "${1:-}" in
     inputs=$(printf '%s\n' "$groups" | sed -n 's/^inputs_sha256=//p')
     [ "$inputs" = "$start_inputs" ] || doubt "inputs changed during the run — nothing certified"
     vsum=$(verify_sha256) || doubt "cannot hash .pandacorp/verify.sh — nothing certified"
+    exclusion_expiry=0
+    if [ -f .pandacorp/test-exclusions.json ]; then
+      node .pandacorp/test-gate-policy.mjs validate . || doubt "invalid owner exclusions"
+      exclusion_expiry=$(node -e 'const e=require("./.pandacorp/test-exclusions.json");console.log(e.length ? Math.min(...e.map(x=>Date.parse(x.expires)/1000)) : 0)') || doubt "cannot read exclusion expiry"
+    fi
     record_epoch=$(date +%s)
     if [ "${3:-}" = --preserve-age ]; then
       # Rebinding an unchanged certificate to a new rebase base is not a new gate.
@@ -215,7 +226,7 @@ case "${1:-}" in
     tmp=$(mktemp "$STAMP.XXXXXX") || doubt "cannot write $STAMP"
     base="${PANDACORP_STAMP_BASE:-}"
     case "$base" in *[!0-9a-f]*) doubt "invalid stamp base" ;; esac
-    { printf 'version=%s\ntree=%s\nverify_sha256=%s\nbase=%s\nat_epoch=%s\n' "$VERSION" "$tree" "$vsum" "$base" "$record_epoch"; printf '%s\n' "$groups"; } > "$tmp" \
+    { printf 'version=%s\ntree=%s\nverify_sha256=%s\nbase=%s\nat_epoch=%s\nexclusion_expiry=%s\n' "$VERSION" "$tree" "$vsum" "$base" "$record_epoch" "$exclusion_expiry"; printf '%s\n' "$groups"; } > "$tmp" \
       && mv "$tmp" "$STAMP" || { rm -f "$tmp"; doubt "cannot write $STAMP"; }
     echo "green-stamp: certified tree $tree (full verify.sh green on a clean tree)"
     ;;
@@ -249,6 +260,12 @@ CHECKPY
     case "$s_tree" in ''|*[!0-9a-f]*) doubt "stamp tree missing or corrupt" ;; esac
     case "$s_vsum" in ''|*[!0-9a-f]*) doubt "stamp verify.sh hash missing or corrupt" ;; esac
     case "$s_at" in ''|*[!0-9]*) doubt "stamp time missing or corrupt" ;; esac
+    expiry=$(stamp_field exclusion_expiry)
+    # Old v3 stamps without exclusions remain valid; a policy file requires explicit expiry.
+    if [ -f .pandacorp/test-exclusions.json ] || [ -n "$expiry" ]; then
+      case "$expiry" in ''|*[!0-9]*) doubt "exclusion expiry missing or corrupt" ;; esac
+      [ "$expiry" = 0 ] || [ "$(date +%s)" -le "$expiry" ] || doubt "owner exclusion expired"
+    fi
     now_tree=$(current_tree) || doubt "not a git checkout"
     [ "$now_tree" = "$s_tree" ] || doubt "tree $now_tree is not the certified tree $s_tree"
     tree_is_clean || doubt "working tree not clean"

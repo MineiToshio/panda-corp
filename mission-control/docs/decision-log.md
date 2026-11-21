@@ -1,5 +1,14 @@
 # Decision Log — Mission Control
 
+## 2026-11-21 - Pandacorp overlay upgraded 9.8.0 -> 9.9.3
+
+Adopt the proposal 43 phase 3 gate policy: `verify.sh` and `green-stamp.sh` re-synced from the
+Stack A and shared templates, `test-gate-policy.mjs` installed verbatim, the guide, the managed
+`AGENTS.md` block and `quality-and-testing.md` regenerated. `knip.json` keeps its project entries
+(navigation scripts). No owner exclusion key or `test-exclusions.json` exists, so exclusions stay
+inert; `gate-budget.json` is absent (the gate warns) until a reviewed baseline is committed from a
+green full gate report.
+
 ## 2026-11-21 - Render proposal 43 gate guidance from the Manual single source
 
 Move the phase-1 queue completion and attended-publication guidance into
