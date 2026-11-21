@@ -125,7 +125,13 @@ async function setup(name, { launched = false, plan = {}, rollout = "normal" } =
     const f = path.join(root, "docs", "frds", wo.startsWith("wo-01") ? "frd-01-alpha" : "frd-02-beta", "work-orders", `${wo}.md`);
     await writeFile(f, (await readFile(f, "utf8")).replace(/^dependsOn:(.*)$/m, `dependsOn:$1\nsource_change: [${SLUG}]`));
   }
-  await copyFile(MQ_TEMPLATE, path.join(root, ".pandacorp", "merge-queue.sh")); await chmod(path.join(root, ".pandacorp", "merge-queue.sh"), 0o755);
+  // Phase 1 requires a recorded full-gate certificate. Install the real helper
+  // with the real queue; the project-owned green stub uses the queue's record fallback.
+  for (const name of ["merge-queue.sh", "green-stamp.sh"]) {
+    const target = path.join(root, ".pandacorp", name);
+    await copyFile(path.join(path.dirname(MQ_TEMPLATE), name), target);
+    await chmod(target, 0o755);
+  }
   git(root, ["add", "-A"]); git(root, ["commit", "-q", "-m", "fixture: e2e overlay (merge-queue, source_change)"]);
   if (launched) git(root, ["push", "-q", "origin", "main"]);
   await writeFile(path.join(root, ".pandacorp", "inbox", "changes", `${SLUG}.md`), V2_CARD);
@@ -244,6 +250,13 @@ async function checkLanded(sc, label) {
   const tip = gitTry(sc.root, ["rev-parse", "main"]);
   const newLog = reflogMain(sc.root).slice(0, Math.max(0, reflogMain(sc.root).length - sc.reflog0));
   check(sc, `${label}: main moved exactly once, by a fast-forward merge (the merge-queue landing)`, tip !== sc.baseline && newLog.length === 1 && /merge|fast-forward/i.test(newLog[0] || ""), `reflog new: ${txt(newLog)}`);
+  const queue = (await readFile(path.join(sc.root, ".pandacorp/run/queue-log.jsonl"), "utf8").catch(() => "")).split("\n").filter(Boolean).map(JSON.parse);
+  const ff = queue.findIndex(row => row.event === "ff" && row.sha === tip && row.result === "ok");
+  const attempt = queue[ff]?.attempt;
+  const gate = queue.slice(0, Math.max(0, ff)).filter(row => row.attempt === attempt);
+  const start = gate.findIndex(row => row.event === "gate_start");
+  const end = gate.findIndex(row => row.event === "gate_end" && row.rc === 0);
+  check(sc, `${label}: a successful queue-owned full gate precedes the exact-tip ff in the same attempt`, start >= 0 && end > start && ff >= 0, txt(gate));
   const body = gitTry(sc.root, ["log", "-1", "--format=%B", "main"]) || "";
   check(sc, `${label}: landing metadata commit is main's tip with trailer Change: ${SLUG}`, new RegExp(`^Change:\\s*${SLUG}\\s*$`, "m").test(body), body.slice(0, 400));
   const others = (gitTry(sc.root, ["log", "--format=%H %B%x00", `${sc.baseline}..main~1`]) || "").split("\0").filter((s) => /Change:/m.test(s.split("\n").slice(1).join("\n")));

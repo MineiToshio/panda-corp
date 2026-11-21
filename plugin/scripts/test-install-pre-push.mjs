@@ -11,7 +11,7 @@ const zero = '0'.repeat(40);
 const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
   GIT_AUTHOR_NAME: 'Fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
   GIT_COMMITTER_NAME: 'Fixture', GIT_COMMITTER_EMAIL: 'fixture@example.invalid' };
-for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'PANDACORP_OWNER_RELEASE_OK']) delete env[k];
+for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'PANDACORP_OWNER_RELEASE_OK', 'PANDACORP_OWNER_UNGATED_PUSH', 'PANDACORP_OWNER_UNGATED_REASON']) delete env[k];
 function fixture(t) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'nested-pre-push-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -26,11 +26,19 @@ function fixture(t) {
   return { root, git, put, commit, initial, status, line, hook };
 }
 
-test('standalone project guards default branch and keeps the owner override', t => {
+test('standalone project requires proof with owner order and audits the explicit ungated override', t => {
   const f = fixture(t); f.status('.');
   assert.equal(installPrePush({ project: f.root }).code, 0);
   assert.equal(f.hook(f.line(f.initial)).status, 1);
-  assert.equal(f.hook(f.line(f.initial), { PANDACORP_OWNER_RELEASE_OK: '1' }).status, 0);
+  // Phase 1 deliberately separates the landing order from an ungated exception.
+  assert.equal(f.hook(f.line(f.initial), { PANDACORP_OWNER_RELEASE_OK: '1' }).status, 1);
+  assert.equal(f.hook(f.line(f.initial), { PANDACORP_OWNER_UNGATED_PUSH: '1' }).status, 1, 'bypass still requires the explicit landing order');
+  assert.equal(f.hook(f.line(f.initial), { PANDACORP_OWNER_RELEASE_OK: '1', PANDACORP_OWNER_UNGATED_PUSH: '1', PANDACORP_OWNER_UNGATED_REASON: 'synthetic installer test' }).status, 0);
+  const rows = readFileSync(path.join(f.root, '.pandacorp/run/ungated-pushes.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].commit, f.initial);
+  assert.equal(rows[0].reason, 'synthetic installer test');
+  assert.ok(Number.isFinite(Date.parse(rows[0].time)), 'override records its time');
   assert.equal(f.hook(f.line(f.initial, f.initial, 'feature')).status, 0);
 });
 
@@ -105,7 +113,17 @@ test('nested guard runs on real local-remote pushes and supports quoted literal 
   assert.notEqual(push.status, 0, push.stderr);
   assert.match(push.stderr, /PANDACORP_OWNER_RELEASE_OK/);
   assert.equal(f.git('rev-parse', 'refs/remotes/origin/main'), factory);
-  assert.equal(f.hook(f.line(touching, factory), { PANDACORP_OWNER_RELEASE_OK: '1' }).status, 0);
+  assert.equal(f.hook(f.line(touching, factory), { PANDACORP_OWNER_RELEASE_OK: '1' }).status, 1, 'order without exact-commit proof is insufficient');
+  const override = spawnSync('git', ['-C', f.root, 'push', '-q', 'origin', 'main'], {
+    env: { ...env, PANDACORP_OWNER_RELEASE_OK: '1', PANDACORP_OWNER_UNGATED_PUSH: '1', PANDACORP_OWNER_UNGATED_REASON: 'synthetic nested installer test' }, encoding: 'utf8',
+  });
+  assert.equal(override.status, 0, override.stderr);
+  assert.equal(f.git('rev-parse', 'refs/remotes/origin/main'), touching);
+  const rows = readFileSync(path.join(f.root, scope, '.pandacorp/run/ungated-pushes.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].commit, touching);
+  assert.equal(rows[0].reason, 'synthetic nested installer test');
+  assert.ok(Number.isFinite(Date.parse(rows[0].time)));
 });
 
 test('root and nested registrations retain independent state', t => {

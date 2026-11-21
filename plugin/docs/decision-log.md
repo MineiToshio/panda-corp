@@ -1,5 +1,20 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-21 - Align full-corpus fixtures with phase-1 certification and push proof
+
+Plugin **10.18.3**, overlay unchanged **9.7.2**. Full-corpus review exposed two stale
+integration assumptions, rather than a reason to relax the production guards. The E2E
+fixture installed the real queue without its now-required `green-stamp.sh`; its repeated
+exit 11 caused G3 repair/rescue instead of landing. It now installs the real helper too,
+retains every completion/landing assertion, and checks same-attempt full-gate success
+before the exact-tip ff. Project-owned green gates exercise the queue's real record fallback.
+Installer tests formerly allowed `PANDACORP_OWNER_RELEASE_OK` alone. Phase 1 deliberately
+requires exact-commit proof as well, or the separate logged owner exception. Tests now
+reject the order alone and a bypass without order, and verify synthetic standalone/nested
+exceptions record commit, time and reason, including a real local-remote push.
+[Build orchestration](../../factory/standards/build-orchestration.md) makes the helper
+prerequisite explicit. No production guard or landing expectation is weakened.
+
 ## 2026-11-21 - Adopt attended receipts across physical project aliases
 
 Plugin **10.18.2** / overlay **9.7.2** compare attended landing receipt projects using

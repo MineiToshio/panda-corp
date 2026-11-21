@@ -1,5 +1,15 @@
 # Decision Log — Factory
 
+## 2026-11-21 - Reconcile full-corpus fixtures with the phase-1 contract
+
+[Build orchestration](standards/build-orchestration.md) explicitly requires the stamp helper
+alongside the real queue, including integration fixtures. The E2E setup omitted it and
+therefore repeatedly entered G3 repair on exit 11. Installer tests also expected release
+order alone to bypass proof, which phase 1 deliberately removed under DR-165/DR-153.
+[Plugin history](../plugin/docs/decision-log.md) records the corrected fixtures and stronger
+negative/audit assertions. Plugin **10.18.3**, overlay unchanged **9.7.2**; policy and
+production guards remain unchanged.
+
 ## 2026-11-21 - Preserve attended publication across project path aliases
 
 [The CLI contract](../plugin/docs/build-engine-cli.md) now defines same-project receipt

@@ -355,7 +355,10 @@ Verification: `test-merge-queue-lock-ownership.sh`, `test-merge-queue-env-step-k
 `test-merge-queue-single-slot.sh`, `test-green-stamp-controls.sh`, `test-green-stamp-run-outputs.sh`,
 `test-verify-snapshots-none-full-only.sh`, `test-host-slot-fail-closed.sh`, `test-host-slot-mutex.mjs` and `test-build-v2-land.mjs`.
 Phase 1 now adds required record before ff: a full green with a refused record exits 11
-"green but uncertifiable: <reason>". verify.sh exposes its record receipt without changing ordinary
+"green but uncertifiable: <reason>". The queue requires the matching `green-stamp.sh` helper,
+including in integration fixtures. For project-owned verify scripts that do not emit a record
+receipt, the queue records unchanged start/end inputs through that helper; a missing helper
+still exits 11. verify.sh exposes its record receipt without changing ordinary
 green/red. Declared run-output normalization must ship before this overlay is applied (Mission Control's
 `e2e/.run-outputs` is a coordinator prerequisite). Gate start/end retain load/core observations;
 timeout reds under load greater than core count carry `classification: environment-suspect`.
