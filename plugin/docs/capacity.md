@@ -180,7 +180,7 @@ Limits: no real provider/authentication, native Agent timer, machine sleep or ac
 - `plugin/scripts/test-capacity.mjs`
 - `plugin/scripts/test-codex-worker-direct.mjs`
 - `plugin/scripts/test-codex-worker.mjs`
-- `plugin/skills/implement/references/drive.md`
+- `plugin/skills/implement/references/legacy-engine/drive.md`
 
 ## Account ingestion and audit
 
@@ -704,9 +704,9 @@ One path per line; all changes remain uncommitted:
 - `plugin/scripts/test-capacity.mjs`
 - `plugin/skills/design/scripts/codex-image.sh`
 - `plugin/skills/implement/SKILL.md`
-- `plugin/skills/implement/references/autonomy.md`
-- `plugin/skills/implement/references/drive.md`
-- `plugin/skills/implement/references/engine-v2.md`
+- `plugin/skills/implement/references/legacy-engine/autonomy.md`
+- `plugin/skills/implement/references/legacy-engine/drive.md`
+- `plugin/skills/implement/references/legacy-engine/engine-v2.md`
 - `factory/memory/_inbox.md` (gitignored, append-only lesson capture)
 
 ### Remaining scope and risks

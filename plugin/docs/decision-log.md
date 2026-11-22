@@ -1,5 +1,22 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-22 — Make implement a goal-based skill
+
+Owner decision. [Implement](../skills/implement/SKILL.md) states the goal and non-negotiable
+invariants in plain text. The AI writes and adapts its own plan for each case, including how
+to assign work and test it. Independent verification and the project merge queue still
+determine completion. The proposal-46 rollout plan estimated
+177–314 worker-hours, and three review rounds did not converge. The owner reports good results
+with direct prompting. The change is reversible. The JavaScript engine stays available as a
+[manual legacy fallback](../skills/implement/references/legacy-engine/engine-v2.md) to resume runs
+started with that engine. Plugin 11.0.0 and overlay 9.9.6. The legacy standard's existing preamble
+returns to the top of the file so the standards checker can read it.
+
+A gitignored plan records ownership and enough state for a fresh coordinator to resume.
+The coordinator keeps work-order state truthful in regular commits. Small groups of related
+FRDs can land separately when it helps verification. The factory entry points and managed
+project guide reflect this route.
+
 ## 2026-11-21 — Type every const/enum node in Codex output schemas
 
 No version bump (schema data only). codex-cli 0.171 (installed 2026-11-20) rejects output-schema nodes that carry `const` or `enum` without `type` ("schema must specify a type"), so every `via:"cli"` Codex unit failed before running and the engine abandoned it after two identical failures (observed in funko-tracker run br-2026-11-21-01). The report, review-report, rescue-report and doubt-answer schemas now declare the type beside each const/enum; `fsx.mjs` already accepts `type` arrays, so engine validation is unchanged. Regression test: `plugin/scripts/test-codex-output-schemas.mjs`. Verified with a live `codex exec` call (old schema refused with 400, new schema returned valid JSON).
@@ -528,7 +545,7 @@ Crash recovery adopts a gated continuation runner under a recoverable mutex; cap
 
 ## 2026-11-14 — Independent capacity review: preserve eligible work and execution identity
 
-Fixed task-specific scheduling/wakes, recoverable unconsumed consultation waits, persisted prelaunch receipts without attempts or false quota, Claude streaming heartbeat, quota-trigger retirement and live takeover preservation, and fail-closed standalone security risk. Restored BUILD-10 safeguards and removed conflicting operational policy. Canonical: [capacity.md](capacity.md), [BUILD-10/11/12/14](../../factory/standards/build-engine.md), [drive](../skills/implement/references/drive.md). Plugin 10.11.1; no commit requested.
+Fixed task-specific scheduling/wakes, recoverable unconsumed consultation waits, persisted prelaunch receipts without attempts or false quota, Claude streaming heartbeat, quota-trigger retirement and live takeover preservation, and fail-closed standalone security risk. Restored BUILD-10 safeguards and removed conflicting operational policy. Canonical: [capacity.md](capacity.md), [BUILD-10/11/12/14](../../factory/standards/build-engine.md), [drive](../skills/implement/references/legacy-engine/drive.md). Plugin 10.11.1; no commit requested.
 
 ## 2026-11-14 — In-place capacity continuation and autonomous technical assumptions
 
@@ -698,7 +715,7 @@ reach the test Postgres, the run ended `finished`, and no command could bring th
 hand-back promised "Arreglar el entorno y reanudar"; the same worker could not write its report outside the
 worktree, and the allowlist forced its DESIGN.md amendment into a side doc. Only env-infra is lifted without
 the owner: it judges the environment, never the work. Canonical: [CLI reference 3.14b](build-engine-cli.md),
-[engine-v2 protocol](../skills/implement/references/engine-v2.md), BUILD-15 in
+[engine-v2 protocol](../skills/implement/references/legacy-engine/engine-v2.md), BUILD-15 in
 [build-engine.md](../../factory/standards/build-engine.md). Tests: `test-build-v2-unblock.mjs`,
 `test-build-v2-workers.mjs`, `test-codex-worker-direct.mjs`.
 

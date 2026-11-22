@@ -3,7 +3,7 @@
 ## Supervised rescue (DR-164)
 
 Policy: [BUILD-16](../../factory/standards/build-engine.md). Coordinator workflow:
-[rescue protocol](../skills/implement/references/rescue.md). Repeated technical failures
+[rescue protocol](../skills/implement/references/legacy-engine/rescue.md). Repeated technical failures
 never release a run as stopped. One supervised rescue per unit preserves protected oracles,
 fresh independent review and full verify; unsuccessful units become explicit gaps.
 
@@ -28,7 +28,7 @@ exceptions and outcome; `summary.gaps[]` lists uncompleted WOs and reasons. Neit
 review nor a red verify can be reported as successfully rescued.
 
 
-> Audience: the engineers (and agents) who implement, test or call the v2 build engine. This file owns the **interfaces**: commands, arguments, exit codes, JSON output shapes, on-disk files, environment test hooks and the worker brief. It owns no policy. Thresholds, routing and review matrices, admission constants, the autonomy ladder, human-gate rules and the failure policy belong to **`factory/standards/build-engine.md`** (rules BUILD-7 to BUILD-15). Session behavior (what the lead agent does between calls) belongs to `plugin/skills/implement/references/{engine-v2.md,autonomy.md,drive.md}`. JSON Schemas live in `plugin/runtime/build/schemas/`. Where this file says "policy", follow the link, do not copy. Where a design is referred to as `D<n>`, the text is the binding design list of the engine build plan (rev 2); this file restates only its interface consequences.
+> Audience: the engineers (and agents) who implement, test or call the v2 build engine. This file owns the **interfaces**: commands, arguments, exit codes, JSON output shapes, on-disk files, environment test hooks and the worker brief. It owns no policy. Thresholds, routing and review matrices, admission constants, the autonomy ladder, human-gate rules and the failure policy belong to **`factory/standards/build-engine.md`** (rules BUILD-7 to BUILD-15). Session behavior (what the lead agent does between calls) belongs to `plugin/skills/implement/references/legacy-engine/{engine-v2.md,autonomy.md,drive.md}`. JSON Schemas live in `plugin/runtime/build/schemas/`. Where this file says "policy", follow the link, do not copy. Where a design is referred to as `D<n>`, the text is the binding design list of the engine build plan (rev 2); this file restates only its interface consequences.
 
 ## Phase-3 capacity continuation interface (DR-162)
 
@@ -327,7 +327,7 @@ Output:
 
 - A `question` is present only on `status:"ask"` checks. Question model: `{id, text_es, default_es, default_action, affects, reversible}`. `affects` is `{"all":true}`, `{"frds":[...]}` or `{"wos":[...]}`: units in `affects` of an open question carry `pending_answer`. Ids: `q-<check id>` for asks, the doubt id for parks, `g-<unit>` for gates.
 - `need_from_owner` lists the question ids that the session must put in "Necesito de ti". Every ask carries a default so a silent owner never blocks the build.
-- `announce` is data only. The session renders it ("Necesito de ti" numbered with "si no respondes: ...", then the start announcement). Rendering rules: `implement/references/engine-v2.md`. `launched_project_line_es` is set in a launched project (nothing is written on `main`); `drive_line_es` reports the armed/unarmed relay from `drive_armable` and `drive_block_reason`; quota does not arm or veto it.
+- `announce` is data only. The session renders it ("Necesito de ti" numbered with "si no respondes: ...", then the start announcement). Rendering rules: `implement/references/legacy-engine/engine-v2.md`. `launched_project_line_es` is set in a launched project (nothing is written on `main`); `drive_line_es` reports the armed/unarmed relay from `drive_armable` and `drive_block_reason`; quota does not arm or veto it.
 - Check ids (stable strings):
 
 | Group | Ids |
@@ -1425,7 +1425,7 @@ Direct mode prints one sealed JSON line `{status:'done', ok, kind, answer|text, 
 |---|---|
 | What counts as done, the gates G0 to G4, routing matrices, autonomy ladder, human gates, failure policy | `factory/standards/build-engine.md` |
 | Every numeric constant (quota, admission, caps, lease ttl, poll, sizes) | the Constants table of `factory/standards/build-engine.md` |
-| What the session does between calls | `plugin/skills/implement/references/{engine-v2.md,autonomy.md,drive.md}` |
+| What the session does between calls | `plugin/skills/implement/references/legacy-engine/{engine-v2.md,autonomy.md,drive.md}` |
 | JSON shapes in machine form | `plugin/runtime/build/schemas/*.schema.json` |
 | Cell selection / complexity / catalog and historical data | `plugin/runtime/capacity.mjs` / `plugin/runtime/complexity.mjs` / `plugin/runtime/model-tiers.json` (version 2) |
 | Lease and fencing semantics (v1 base) | `plugin/runtime/build-state-contract.md` |

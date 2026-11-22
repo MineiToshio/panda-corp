@@ -20,9 +20,8 @@ closing_at:              # written by sync close-out alongside implemented_sha: 
 <!--
   TEMPLATE for .pandacorp/inbox/changes/<slug>.md. Frontmatter is English and the owner-facing
   body is Spanish. /pandacorp:implement is the single build entry; the queue is a file format,
-  never automatically drained. For "write it down", create a draft and stop after validating:
-  node <plugin>/scripts/pandacorp-build.mjs card check <path>
-  Resolve <plugin> from the factory path in .pandacorp/guide.md.
+  never automatically drained. For "write it down", create a draft, check its metadata
+  and scope against this template, and stop at capture.
   Fill Dentro with the requested scope and a real quote from the owner; name exclusions in Fuera
   and unresolved questions in Dudas. Never invent a quote. Keep the bug or feature detail below.
   UI agreed/existing: preserve the cited source, no redesign. UI pending: lightweight design before

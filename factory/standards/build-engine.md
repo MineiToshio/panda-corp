@@ -1,5 +1,7 @@
 # Build engine standard (`pandacorp-build` CLI, engine v2)
 
+> Domain: Quality/Process · Severity: **MUST** · Enforcement: the `pandacorp-build` CLI itself (deterministic, epoch-fenced, fail-closed) + its suites `plugin/scripts/test-build-v2-*.mjs` + the independent reviewer at each FRD/landing; **factory-internal (process) — not injected**: projects meet it through the CLI, `.pandacorp/merge-queue.sh` and the untracked git `pre-push` hook. See DR-150..DR-153.
+
 ## BUILD-16 Supervised rescue and completion with gaps (DR-164)
 
 A technical failure never ends an authorized run as `stopped`. Two observations with the
@@ -72,16 +74,14 @@ was abandoned. Own-temp cleanup loses its exemption on any foreign/unknown use o
 every rescue, cause, exception and uncompleted unit. Do not ask the owner a technical question.
 
 
-> Domain: Quality/Process · Severity: **MUST** · Enforcement: the `pandacorp-build` CLI itself (deterministic, epoch-fenced, fail-closed) + its suites `plugin/scripts/test-build-v2-*.mjs` + the independent reviewer at each FRD/landing; **factory-internal (process) — not injected**: projects meet it through the CLI, `.pandacorp/merge-queue.sh` and the untracked git `pre-push` hook. See DR-150..DR-153.
-
 How `/pandacorp:implement` builds once it runs on the v2 engine: a thin session protocol over a
 runtime-neutral Node CLI (`plugin/scripts/pandacorp-build.mjs`) that owns every deterministic
 decision (scope, plan, admission, routing, quota, gates, integration, landing, state). Rules
 BUILD-7..BUILD-15 live here and only here; every other document links to them instead of restating
 them.
 
-**Applicability.** From plugin 10.0.0 this CLI is the only product build engine and
-`/pandacorp:implement` is its single entry. The retired engine is deleted, recoverable through
+**Applicability.** Use this CLI only to resume a run it originally started. New product builds follow [implement](../../plugin/skills/implement/SKILL.md).
+The retired engine is deleted, recoverable through
 `archive/engine-dynamic-workflows-v9.157.0`; no archive directory or reactivation script ships.
 Recovery instructions and the retired-path inventory live in `plugin/docs/engine-v1-reactivation.md`.
 The separate factory-backlog workflow remains. Human gates (production, spending money, deleting
@@ -94,7 +94,7 @@ file. Command, file, coordinator-mapping and schema interfaces: `plugin/docs/bui
 `plugin/runtime/build/schemas/*.json`. Machine encoding of the routing tables and thresholds:
 `plugin/runtime/model-tiers.json` v2 (the table test asserts it equals the tables here, cell by
 cell; a change edits both in one commit). Session behaviour:
-`plugin/skills/implement/references/engine-v2.md` (R2: `implement/SKILL.md`). Agent behaviour:
+`plugin/skills/implement/references/legacy-engine/engine-v2.md` (R2: `implement/SKILL.md`). Agent behaviour:
 `plugin/agents/*.md`. Runtime boundary: `agent-portability.md` PORT-5. Project test obligations
 (TDD, coverage, mutation): `quality.md` + `rules/quality-and-testing.md`, which reference this file
 for what the engine runs.

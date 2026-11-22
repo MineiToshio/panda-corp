@@ -4,7 +4,7 @@
 
 This standard owns durable planning, work-order state and session isolation. Runtime policy lives in [build-engine.md](build-engine.md) **BUILD-7..BUILD-15**: entry/scope, cards, planning/admission, review, quota, doubts, landing, relay and failure recovery. Command/schema interfaces live in [build-engine-cli.md](../../plugin/docs/build-engine-cli.md). Do not copy the engine's thresholds or routing tables here.
 
-From plugin 10.0.0, `/pandacorp:implement` is the single entry for a feature, change, bug, pending plan or resumed run. Saving a request for later creates a draft card plus `card check`; it does not start construction. The CLI never drains unrelated cards into the selected scope.
+[`/pandacorp:implement`](../../plugin/skills/implement/SKILL.md) is the plain-text build procedure, and the CLI-specific instructions in this standard apply only when manually resuming a run the legacy engine started. Saving a request for later creates a draft card validated against `plugin/templates/docs/change-request-template.md`. Capture ends there. The CLI never drains unrelated cards into the selected scope.
 
 The retired executor's text is recoverable at tag `archive/engine-dynamic-workflows-v9.157.0` (commit `1477e9a5`); restoration is an owner decision. See [engine-v1-reactivation.md](../../plugin/docs/engine-v1-reactivation.md). Its launchers, flags and simulated workflow topology are not an alternative operational contract.
 
@@ -162,7 +162,7 @@ The session drives CLI-returned actions. `drive` is the deterministic relay, arm
 
 ## 8. Scoped requests and owner answers
 
-`implement` is the build entry; `.pandacorp/inbox/changes/` holds cards with readers, not an automatic drain. A card is selected by the scope rules of BUILD-7/BUILD-8. Saving a draft uses `card check`. New unrelated requests wait for a later selected run.
+`implement` is the build entry; `.pandacorp/inbox/changes/` holds cards with readers, not an automatic drain. A card is selected by the scope rules of BUILD-7/BUILD-8. Validate a draft against `plugin/templates/docs/change-request-template.md`. New unrelated requests wait for a later selected run.
 
 Owner questions are front-loaded or handled under BUILD-12. Parked questions have a durable decision record, and `.pandacorp/inbox/decisions.pending.md` mirrors tracked decision files for the main-checkout reader without writing tracked files there. `decide` uses the CLI's `answer` for questions in `open_questions`; editing the mirror is not an answer. A nested project's engine-failure handback stays in its own ignored run state, not the factory's main checkout.
 
@@ -176,7 +176,7 @@ A dashboard must tell the truth about freshness, real-change latency and loss of
 
 ## 10. Templates
 
-`plugin/templates/docs/{prd,frd,blueprint,work-order}-template.md` embody the document contract. `spec`, `architecture` and `work-orders` author the plan; `implement` builds it through the CLI and internal engines. Preserve independent review, the Status Note and source traceability when reopening work.
+`plugin/templates/docs/{prd,frd,blueprint,work-order}-template.md` embody the document contract. `spec`, `architecture` and `work-orders` author the plan, and `implement` builds it using a case-specific prompt. Preserve independent review, the Status Note and source traceability when reopening work.
 
 ## 10b. Testing the executor
 
@@ -184,7 +184,7 @@ A dashboard must tell the truth about freshness, real-change latency and loss of
 
 ## 10c. Invocation mechanics
 
-Read `plugin/skills/implement/SKILL.md` and [build-engine-cli.md](../../plugin/docs/build-engine-cli.md). Use `node <plugin>/scripts/pandacorp-build.mjs` for detection, preflight, start/resume and the returned actions. No mode keyword or alternative launcher selects another engine. Never invent a background mechanism when the runtime only supports attended execution.
+Follow [the plain-text implement procedure](../../plugin/skills/implement/SKILL.md), using the [legacy CLI](../../plugin/docs/build-engine-cli.md) solely as a manual fallback to resume its own runs. Never invent a background mechanism when the runtime only supports attended execution.
 
 ## 11. Concurrent-run guard
 

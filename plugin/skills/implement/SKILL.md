@@ -1,146 +1,93 @@
 ---
 name: implement
-description: Build or resume any feature, change or bug through the runtime-neutral Pandacorp CLI. Use inside a project after architecture, or for a scoped change to an existing project.
+description: Deliver the requested Pandacorp change against its agreed behavior and design. Choose a plan for the case, preserve independent verification and resumability, and land through the project queue.
 ---
 
 # /pandacorp:implement
 
-**Queue completion (DR-165 phase 1).** The recipe is commit → `bash .pandacorp/merge-queue.sh`.
-Plain `verify.sh` is diagnosis. Until the queue certifies the current rebased tree, report
-`implemented-uncertified` ("implementado, sin certificar"). Read `bash .pandacorp/merge-queue.sh --status`:
-`certified-awaiting-order` ("certificado, espera tu orden", exit 21 with matching stamp/base),
-`certified-stale` (main moved or stamp expired; re-queue), or `landed` (queue ff, plus published for launched projects).
-Only `certified-awaiting-order` and `landed` may be called done. Work-order `VERIFIED` is review/feature evidence.
-For a launched project, ask for the explicit per-landing order at the START of the work (DR-138 unchanged);
-if deferred, certify and preserve the branch at exit 21. A direct commit on launched main cannot be
-published through a main-checkout stamp: supported paths are the queue or the explicit logged owner
-bypass. The agent never sets the bypass. A transferred stamp's main-checkout check is diagnosis only.
+## Goal
 
-**Repair pre-check.** After a static/Vitest red, run
-`bash .pandacorp/verify.sh --only=live-data-asserts,structure-guard,data-layer,api-error-contract,doc-lint,residual-ambiguity,biome,tsc,knip,madge,vitest`
-(the whole unit suite) before re-queueing. After a Playwright red, run the failing spec plus all static checks.
-`bash .pandacorp/verify.sh --diagnose-unit` reports all static/unit failures under the host slot, never
-certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandacorp/run/test-outcomes.jsonl`;
-`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or autonomous exclusions. DR-165/5B permits reviewed owner-signed exact-id suspect verdict exclusions only in internal Mission Control (maximum 14 days); agents NEVER run authorize-exclusion.mjs, even with a TTY.
+Deliver everything in the agreed scope, working with no known bugs or errors in the
+delivered behavior. Meet the acceptance criteria and match the agreed design within
+a reasonable tolerance for the case. Follow the project's FRD, blueprint, and rules.
 
+If implementation exposes a defect or gap that must be fixed to deliver the scope,
+fix it and then align the owning FRD, blueprint, and `docs/decision-log.md`. Update the
+canonical `data-model.json` for a schema change. Keep unrelated work out of scope.
 
-**The single Pandacorp entry for building and resuming.** Claude Code and Codex use the same
-`plugin/scripts/pandacorp-build.mjs` engine. No engine keyword or execution-mode choice
-is needed. The CLI owns scope detection, planning, admission, routing, review, governed
-state transitions and landing; the session converses and relays the work it returns.
-The conversation selects skills using `.pandacorp/guide.md`; skills never invoke each
-other. An explicit owner request to work directly without Pandacorp uses that direct
-workflow, rather than starting this engine.
+Leave regular commits and a result certified by the project merge queue. An authorized
+landing integrates the work. A launched project can remain certified on its branch
+while it waits for the owner's order. Clean up your own merged, clean worktrees and
+disposable temporary files. Preserve and report dirty, unmerged, or order-pending work.
 
-Read and follow `references/engine-v2.md` in order, together with
-`references/autonomy.md`, `references/drive.md` and `references/rescue.md`. Policy lives in
-`factory/standards/build-engine.md` (BUILD-7..16); exact commands, flags, JSON and exits
-live in `plugin/docs/build-engine-cli.md`. Resolve the factory path from the project's
-`.pandacorp/guide.md`; Claude Code may use `${CLAUDE_PLUGIN_ROOT}` for the installed plugin.
+## How
 
-## Project and ownership preflight
+Read the case, decide what to read, and write your own implementation plan for this
+case. Choose the cheapest route that reliably reaches the goal. Decide what to batch,
+what can run in parallel, who owns each part, and when and how to test. Draw on the
+relevant FRDs, WOs, blueprints, design references, and `docs/rules/` as the case warrants.
+A tiny change may need only a brief plan. A multi-FRD build often benefits from
+separate landings for independently verifiable FRDs or small coupled groups.
 
-- Confirm `.pandacorp/status.yaml` exists; otherwise stop and route an existing project
-  to `/pandacorp:adopt`, or a new idea to `/pandacorp:spec` (DR-045).
-- If `overlay_version` is behind `plugin/templates/OVERLAY_VERSION`, return the prerequisite
-  to the conversation for upgrade routing (DR-048), after checking live-build ownership.
-  Never mix plugin versions on one project: after a plugin update, restart or close all
-  sessions working on it before continuing.
-- Use the CLI's detect and preflight checks. ACTIVE blueprints must have passed readiness,
-  grounding and consistency gates, work orders must be ACTIVE, and ACTIVE docs must have
-  no `NEEDS CLARIFICATION` markers. Missing initial-plan evidence returns to the conversation for architecture routing;
-  an incremental card uses the run's specialist docs contract.
-- The fenced lease is authoritative. Never reset `running`, edit state or reclaim a live
-  foreign run by hand. Resume only through the CLI and its ownership checks.
+Use parallel subagents where they save time on disjoint work. Give each parallel
+writer its own Git worktree (DR-096). Prefer Codex for implementation when an authorized
+worker is available. Match the model and effort to each subtask, using the nearest
+supported choice. Use these tiers as guidance. Never auto-select Fable-class.
 
-## Scope and the first minute
+| Subtask | Claude family / effort | Codex family / effort |
+|---|---|---|
+| Mechanical lookup or exact edit | haiku / low | luna / low |
+| Spec-precise work with an objective check | sonnet / low | luna / medium |
+| Normal implementation | sonnet / low | sol / low |
+| Delicate work such as migrations or concurrency | sonnet / medium | sol / medium |
+| Independent review against fixed criteria | sonnet / medium | sol / low |
+| Judgment under ambiguity or serious risk | opus / high | astra / high |
 
-"Impleméntalo" builds only the behavior ordered in this conversation, captured in a
-cited scope card. A named card or FRD targets that scope; a bare invocation builds the
-pending plan. The CLI selects the first matching detection row. It never drains other
-cards into this run. "Anótalo" creates a `draft` card and validates it with `card check`,
-then stops without a build. The cards are a file format, not another entry command.
+In Claude Code, a long run may use `/goal` or `/loop` if available. Keep a clear
+handoff at a safe point if another session will continue.
 
-Send the first-minute message from `references/autonomy.md`, using preflight evidence
-and its stated defaults. Later doubts follow sources and consultation; reversible technical choices become recorded assumptions
-with rationale and reversal instructions, and do not block integration. One protected action does not stop independent work. Human gates remain binding. A production
-landing requires the owner's explicit order; the engine never grants itself permission.
+## Invariants
 
-## Design source and specialist preparation
+- **Independent verification.** Before declaring done, an agent who did not write
+  the code checks the integrated result against the acceptance criteria and checks
+  correctness and security. Match the effort to the case. If the work is still
+  stuck after two repair attempts, stop and report the blocker and evidence to the
+  owner in Spanish. Keep review bounded.
+- **Observed evidence.** A bug fix has a test that fails before the fix and passes
+  afterward. Check changed UI in the browser preview. Only report done when
+  `bash .pandacorp/merge-queue.sh --status` reports `certified-awaiting-order` or
+  `landed` for the delivered scope. State explicitly which result was observed.
+- **Commits and resumption.** Commit regularly in English with scoped Conventional
+  Commits. The coordinator alone performs Git writes, including worktree operations.
+  Keep WO frontmatter `implementation_status` truthful in those commits. Use
+  `VERIFIED` only when independent review and feature checks support it. Keep a
+  gitignored `.pandacorp/run/implement-plan.md` in the stable project checkout.
+  Choose its format so a fresh session can resume from the evidence and committed
+  progress. Claim ownership atomically and record the owning session ID. If another
+  live session owns the run, stop and ask the owner in Spanish. Release ownership
+  at a safe point before handing off.
+- **Write ownership.** One writer per file. Leave another session's work untouched.
+- **Landing.** Use `bash .pandacorp/merge-queue.sh` for every landing. Launched projects
+  require the owner's explicit order for each landing (DR-138). Never set bypass or
+  override flags or run `authorize-exclusion.mjs`. Add the `Change: <slug>` trailer
+  when a landing answers a card. Set `source_change` on WOs created for that card.
+  If the card spans multiple landings, time its linkage so reconciliation only
+  archives the card when the scope is fulfilled (DR-147).
+- **Human gates.** Stop for the owner before production actions, spending money,
+  deleting data, changing access, or communicating externally.
+- **Scope.** If the plan looks much bigger than the request warrants, stop before
+  building and propose a smaller scope to the owner in Spanish.
+- **Lessons.** Capture lessons in `.pandacorp/run/lessons.md` as they happen.
 
-Read `references/incremental.md` for the three UI cases, card fields and docs roles.
-An agreed or existing design is implemented and documented faithfully, without redesign.
-When the owner delegates everything and no design exists, the conversation first selects
-lightweight design and then implement, without awaiting owner visual approval. If the
-run received `design_source: pending`, its designer docs unit produces that same bounded
-design before the affected UI unit builds; independent work continues. No UI goes
-straight to implementation without a recorded visual source. Non-UI changes go directly
-to implement. Builders never improvise visual design while coding.
+## Intake notes
 
-## Adaptive resources and performance
-
-Follow **BUILD-9** for the adaptive concurrency ladder, admission constants and calibration.
-The ladder is `[1, 2, 3, 5, 8]`, initially 5 unless recent performance recommends lower;
-8 requires journal evidence of sustained 5 without scale-downs. Memory and sustained swap
-growth lower concurrency, critical pressure lowers it to 1, and stable recovery raises
-it again. Swap use alone is not a reason to stop. Dispatch only what `next` admits;
-never replace the controller with a machine-specific agent limit.
-
-Before allocating a new worktree the CLI reserves 1.5 GiB and requires 15 GiB still free
-on the project's volume. `wait` with reason `disk` holds new allocations while existing
-work continues. Report the reason and continue the loop; never delete owner state to
-free space. Bootstrap and merge-queue enforce their own disk checks.
-
-Each run records workers, RAM, swap, scaling, unit timings and disk in the host-local
-performance journal `~/.pandacorp/host/perf/journal.jsonl` (or the configured host path).
-The CLI writes it and uses recent runs to tune admission; the session reports observed
-results and warnings, never fabricates calibration evidence. Hardware details belong
-in the owner's personal profile, not in this skill.
-
-## Shared account capacity (DR-162)
-
-Follow `references/shared-capacity.md` for account ingestion, fixed execution cells,
-subscription suspension and the Claude lead wake-up contract. Keep the attended loop
-when scheduling is unavailable; never claim an unobserved automatic continuation.
-
-## Execution, verification and landing
-
-The session follows the CLI's `next` loop, dispatches exactly its model/effort and files
-reports through the fenced commands. Continue in the active session when scheduling
-is unavailable; claim background continuity only after observing a working mechanism.
-Do not bypass independent review or deterministic gates. The ordinary three-execution budget
-permits one supervised rescue under DR-164; see the rescue protocol at the top of the references.
-Only build and patch units spend that budget; a red gate patches the attributed failing
-scope, preserving healthy work. See BUILD-15 and the CLI reference for fallback behavior.
-
-Every tracked run change is a CLI commit on `lane/<run_id>/integration`. Merge-queue
-is the only path to `main`. Never write tracked files in the main checkout, push, edit
-frontmatter/state manually, or set `PANDACORP_OWNER_RELEASE_OK` without the owner's order.
-Service work follows DR-134 and `factory/standards/external-services.md`: reconcile actual
-accounts/resources, preserve environment values and keep admin credentials out of runtime.
-
-## Close-out and cleanup (CONV-21 / DR-145)
-
-Follow `references/engine-v2.md` §8 for close-out inventories, gate-budget evidence and cleanup.
-
-Use `finish` or the terminal action's summary, then follow the cleanup procedure in
-`references/engine-v2.md` §8 and `../worktrees/SKILL.md` §Implementation teardown.
-The engine removes eligible finished-run worktrees immediately and keeps branches;
-`waiting_gate` retains the integration worktree needed for the owner's landing order.
-Verify the resulting worktree inventory and report retained paths and reasons. Never
-force-remove dirty, locked, live or process-cwd worktrees, or bulk-clean `.pandacorp/`.
-
-For session-owned resources, register them before dispatch, restore the actual session
-cwd, run `session-cleanup.mjs finish` and await its exit. Remove only named, eligible
-scratch paths created by this session. A timeout is not successful cleanup.
-
-Technical failures enter supervised rescue after the same cause occurs twice. A failed rescue
-abandons only the unit and dependent work; independent work continues to `completed_with_gaps`.
-The app lead executes session rescue briefs directly; drive uses a fresh worker. Tests stay
-protected and every rescued commit needs independent review plus full green project verify
-before integration. Never end the session for a technical `stop` or ask for technical approval.
-
-The final report uses verified CLI results: owner questions/gates, autonomous decisions,
-parked work, landed work versus work waiting on its branch, review status, quota and
-cleanup/performance warnings. Capture lessons and leave an actionable explanation for
-anything retained or unverified.
+- Take scope from the owner's request, a selected card, a bug report, or the
+  relevant FRDs and WOs. For capture only, validate a draft against the
+  [change-request template](../../templates/docs/change-request-template.md).
+- Build faithfully from an agreed or existing design. For UI without a design,
+  use lightweight design first for a scoped change (DR-163). First designs and
+  major redesigns keep their project design gate.
+- Honor an explicit “do it directly” or “hazlo directo” request and keep the
+  applicable verification and human gates.
+- The legacy CLI serves only as a manual fallback to resume a run it started.
+  See [legacy engine resumption](references/legacy-engine/engine-v2.md).

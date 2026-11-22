@@ -9,7 +9,9 @@ a technical stop or ask the owner a technical question. Scope, protected oracles
 review, full verify, the lease and actual human gates remain mandatory.
 
 
-**Default and only build engine.** `/pandacorp:implement` follows this protocol for every build and resume. Policy, thresholds and matrices live in
+**Manual resume only.** For a confirmed existing CLI run, follow the ownership checks and step 4.2, then continue at step 5. Fresh-start instructions below are historical. Route every new scope to [implement](../../SKILL.md).
+
+Policy, thresholds and matrices live in
 `factory/standards/build-engine.md` (BUILD-7..15); every command, flag, exit code, file and JSON shape lives in
 `plugin/docs/build-engine-cli.md`. This file says only what the **session** does, in order. Autonomy (first minute,
 doubts, parking, gates) is in `autonomy.md`; the Codex relay in `drive.md`.
