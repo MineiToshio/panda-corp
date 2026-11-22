@@ -11,8 +11,8 @@ created: 2026-10-25
 status: active   # 2026-10-29: cross-project corroboration (funko-tracker + mission-control) meets the eval-gate bar
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [LESSON-0111, DR-142, LESSON-0507]
 ---
 
@@ -87,3 +87,13 @@ at all, which would NOT contradict the "doesn't work for a real worktree" findin
 explicit, controlled re-test (true `git worktree add` vs. plain subdirectory of the main checkout) before
 either revising or discarding the original "`--add-dir` does not work" claim — do not treat it as resolved
 either way yet.
+
+**Corroborating instance (funko-tracker, 2026-11-21, agent-inferred) — Codex sandbox cannot START a native
+Postgres test server or open tsx's own socket:** distinct from the already-documented "connect to a
+supervisor-owned Postgres over loopback via `network_access`" workaround above (which assumes something
+else already started the cluster), the same directory-scoped Codex sandbox cannot itself LAUNCH a native
+Postgres test server, nor open the IPC socket `tsx` opens for itself, for DB-backed test suites. Apply
+next time: route DB-backed test execution to the supervising coordinator or an unsandboxed Claude subagent
+instead of a sandboxed Codex worker; when Codex itself must run a non-DB test subset, invoke
+`node --import tsx` directly against its own DB-less vitest config, rather than trying to spin up a local
+Postgres or tsx's socket from inside the sandbox.

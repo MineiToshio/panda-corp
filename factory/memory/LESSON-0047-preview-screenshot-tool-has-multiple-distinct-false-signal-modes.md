@@ -38,8 +38,8 @@ created: 2026-07-03
 status: active
 promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standards/debugging.md, add as a "preview/screenshot verification false-signal checklist" alongside DEBUG-1..4 (seven named modes: animated canvas timeout, worktree launch.json resolving to main, Turbopack worktree-root confusion, below-fold/opacity black frame, prefers-color-scheme defaulting light, hidden Browser pane forcing solid black, axe color-contrast measured mid stagger-animation). Corroborated across 3 distinct projects (panda-corp + personal-page-v2 + funko-tracker), synthesizing 7 sibling lessons with zero contradicting evidence — before trusting a preview/screenshot/a11y tool's verdict, this checklist is cheaper than re-deriving each mode from scratch.
 confidence: medium
-times_applied: 1
-applied_in: [personal-page-v2]
+times_applied: 2
+applied_in: [personal-page-v2, panda-corp]
 links: [LESSON-0033, LESSON-0034, LESSON-0039, LESSON-0041, LESSON-0060, LESSON-0069, LESSON-0245, LESSON-0380, LESSON-0381]
 ---
 

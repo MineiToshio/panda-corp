@@ -11,8 +11,8 @@ created: 2026-10-21
 status: active   # 2026-10-21 (librarian review) — eval-gate: provenance owner-stated, schema-valid, no contradiction; auto-activates per DR-047 lifecycle step 2 without needing cross-project corroboration
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [LESSON-0429, LESSON-0464, LESSON-0480]
 ---
 

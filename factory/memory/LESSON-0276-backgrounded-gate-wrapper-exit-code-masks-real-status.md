@@ -11,8 +11,8 @@ created: 2026-10-01
 status: active   # 2026-11-21 (pandacorp-memory-review harvest, eval-gate) — cross-corroborated across 2 distinct projects (personal-page-v2, panda-corp), schema-valid, no contradiction with a higher-confidence lesson; promotes per DR-047
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [LESSON-0078]
 ---
 

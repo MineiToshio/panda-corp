@@ -11,8 +11,8 @@ created: 2026-11-04
 status: active
 promotion: none
 confidence: medium
-times_applied: 1
-applied_in: [funko-tracker]
+times_applied: 2
+applied_in: [funko-tracker, panda-corp]
 links: [LESSON-0602]
 ---
 

@@ -11,8 +11,8 @@ created: 2026-09-25
 status: candidate
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [BL-0157, LESSON-0002, LESSON-0074, LESSON-0172]
 ---
 

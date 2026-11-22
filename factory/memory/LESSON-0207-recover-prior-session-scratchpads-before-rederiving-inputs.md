@@ -10,12 +10,16 @@ provenance: agent-inferred
 created: 2026-09-08
 status: active
 promotion: proposed   # 2026-10-19 (librarian review, refined 2026-11-11) — target: factory/standards/agent-portability.md (or a new session-continuity convention): "before re-deriving research/analysis a prior session likely already produced, check for its scratchpad (find-based recovery) or the Artifact tool's action=read as a second channel; and write durable analysis output to the repo in the SAME turn it is produced, never left pending in scratch, since a wiped scratchpad has no recovery path for a plain report — name the three known triggers (session restart, long pause, git worktree becoming prunable)." Corroborated across 3 distinct projects (personal-page-v2's wiped-scratchpad + Artifact-tool recovery facets; mission-control's permanently-lost canary/forensic reports during the 2026-09 speed sprint + the long-pause trigger; funko-tracker's worktree-prunable trigger, 2026-11-11) with zero contradicting evidence. Fifth corroboration, mission-control (2026-11-01, agent-inferred): scratchpad logs don't survive a LONG PAUSE either (not just a restart) — the prescription sharpens to naming the exact in-repo durable location, `.pandacorp/run/archive`, as where resumable evidence must be saved before pausing, not just "the repo" generically.
-confidence: medium
+confidence: high
 times_applied: 0
 applied_in: []
-links: [LESSON-0177, LESSON-0186]
+links: [LESSON-0177, LESSON-0186, LESSON-0715]
 # 2026-11-11 (librarian harvest, funko-tracker, agent-inferred): sixth corroboration — a GIT WORKTREE
 # becoming prunable is a third scratchpad-loss trigger alongside restart/long-pause. See body.
+# 2026-11-22 (librarian harvest, panda-corp itself, agent-inferred): eighth corroboration, a FOURTH
+# distinct project — confidence raised medium->high. See body.
+# 2026-11-22 (librarian harvest, funko-tracker, agent-inferred): ninth corroboration — a multi-worker
+# stake (shared interim documents lost, not just one session's own re-derivation). See body.
 ---
 
 **Situation:** prior sessions' scratchpad directories survive on disk at
@@ -69,3 +73,26 @@ change), not only on a session restart or a long pause — the same "write durab
 the SAME turn, never leave it pending in scratch" prescription applies here too, since this is a THIRD
 independent trigger for the same loss, not a new failure mode. Branches themselves persist across this
 trigger (git history survives); only the scratchpad's own files are at risk.
+
+**Eighth corroboration, a FOURTH distinct project (2026-11-22, panda-corp itself, agent-inferred):** a
+coordinator's own plan/briefs/run logs, kept only in its session scratchpad during a multi-hour rollout,
+were lost mid-rollout on a desktop-session restart. Sharper mechanistic detail on WHY a restart causes
+this: the scratchpad path is keyed by session id
+(`/private/tmp/claude-501/<project-key>/<session-id>/scratchpad`), and a restart gets a brand-new session
+id — so the OLD path, and everything the prior session wrote there, is not merely "wiped", it is simply no
+longer the path the new session is looking at. This corroborates the existing restart trigger from a
+FOURTH independent project (after personal-page-v2, mission-control, funko-tracker), raising confidence
+medium → high. Prescription restated generically: a long-running coordinator/orchestrator must persist its
+own plan, dispatched-worker briefs and run logs to a durable GITIGNORED in-repo folder scoped by topic
+(e.g. `.pandacorp/run/<topic>/`, generalizing the fifth corroboration's fixed `.pandacorp/run/archive`
+example) as it produces them, not accumulate them only in the session scratchpad across a multi-hour span.
+
+**Ninth corroboration, a multi-worker stake (2026-11-21, funko-tracker, agent-inferred):** a restart
+mid-way through an hours-long ingestion rewrite with several dispatched workers wiped the scratchpad
+holding design.md, an adjustments log, and running reports — documents OTHER workers, not only the
+session that wrote them, needed to keep going. The loss stalled the whole multi-worker job, not just one
+session's own re-derivation. Sharpened prescription: for any job expected to run for hours with more than
+one worker reading the same interim artifacts, write those artifacts to a durable gitignored location (the
+worktree's own gitignored folder, or `.pandacorp/run/archive`) from the moment they're first produced,
+never only to the session scratchpad — a scratchpad loss in a single-worker task costs one re-derivation,
+but in a multi-worker task it can cost the whole job's shared state.

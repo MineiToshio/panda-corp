@@ -9,10 +9,10 @@ source: "funko-tracker .pandacorp/comms/iteration.md ronda 3, 2026-10 (owner-sta
 provenance: owner-stated
 created: 2026-10-13
 status: active
-promotion: none
+promotion: proposed
 confidence: high
-times_applied: 2
-applied_in: [pandasaga, funko-tracker]
+times_applied: 3
+applied_in: [pandasaga, funko-tracker, panda-corp]
 links: [LESSON-0312, BL-0056, BL-0233]
 ---
 
@@ -32,3 +32,5 @@ DEFAULT (unfiltered) viewport at the project's target breakpoints and count visi
 (not chrome) before calling the layout done; treat zero-to-few visible items above the fold as a hard
 failure, not a style preference. Where feasible, encode this as an automated check (see BL-0233) rather
 than relying on a human catching it at review time.
+
+**Auto-proposed for promotion** (2026-11-22): cited by 3 projects (pandasaga, funko-tracker, panda-corp) — measured by count-lesson-citations.sh. Target/rationale to be refined by the next `/pandacorp:memory review`; approval is `/pandacorp:learn` + the owner (DR-047 high-risk gate).

@@ -9,10 +9,10 @@ source: "synthesis over 4 evidence-anchored candidates, personal-page-v2 + missi
 provenance: agent-inferred
 created: 2026-08-03
 status: active
-promotion: none
+promotion: proposed
 confidence: medium
-times_applied: 2
-applied_in: [mission-control, funko-tracker]
+times_applied: 3
+applied_in: [mission-control, funko-tracker, panda-corp]
 links: [LESSON-0040, LESSON-0066, LESSON-0079, LESSON-0139, LESSON-0197, LESSON-0363, LESSON-0411, LESSON-0416]
 ---
 
@@ -67,3 +67,5 @@ confirming a pre-existing intermittent flake unrelated to the change, not a regr
 This is a CONV-13 instance specific to e2e triage: reproduce the exact failure against untouched
 upstream before attributing it to your own diff. Only after ruling out all eleven should an e2e red be
 treated as evidence of a real application regression.
+
+**Auto-proposed for promotion** (2026-11-22): cited by 3 projects (mission-control, funko-tracker, panda-corp) — measured by count-lesson-citations.sh. Target/rationale to be refined by the next `/pandacorp:memory review`; approval is `/pandacorp:learn` + the owner (DR-047 high-risk gate).

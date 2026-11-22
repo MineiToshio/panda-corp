@@ -11,8 +11,8 @@ created: 2026-10-21
 status: active
 promotion: none
 confidence: high
-times_applied: 1
-applied_in: [mission-control]
+times_applied: 2
+applied_in: [mission-control, panda-corp]
 links: [LESSON-0090]
 ---
 

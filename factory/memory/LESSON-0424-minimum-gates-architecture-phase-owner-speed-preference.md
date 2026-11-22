@@ -11,8 +11,8 @@ created: 2026-10-18
 status: active
 promotion: proposed   # 2026-10-28 (librarian review, refined) — target: factory/decisions/registry.yaml (new DR default for multi-gate phase cadence: default to the minimum mandated gates + one fix pass; once the owner has approved, run the closing sequence — propagation + one mechanical check — exactly once, logging any further nit/newer-standard/edge-case found mid-close for later rather than re-opening the same close; the same discipline now extends to IMPLEMENT — split an unrelated pre-existing blocker into its own fix-forward commit immediately, and sweep a small UI change's full neighborhood once before shipping instead of absorbing one owner-reported gap at a time). Corroborated across 2 distinct projects (funko-tracker, pandasaga) spanning 3 distinct phases now — funko-tracker's architecture phase AND its 2026-10-26 IMPLEMENT-phase recurrence, plus pandasaga's design-phase closing sequence — with zero contradicting evidence, all owner-stated (highest-trust provenance). The within-project IMPLEMENT recurrence sharpens rather than merely repeats the pattern (a new chaining mechanism: unrelated inherited CI blockers, not just extra review rounds), strengthening the case for a registry-level default over a single-phase note.
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [LESSON-0274, LESSON-0390, LESSON-0246]
 ---
 

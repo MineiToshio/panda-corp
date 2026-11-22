@@ -24,8 +24,8 @@ created: 2026-10-23
 status: active   # 2026-11-09 (librarian eval-gate): cross-project corroboration (mission-control + funko-tracker), schema-valid, no contradiction
 promotion: none
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: []
 ---
 

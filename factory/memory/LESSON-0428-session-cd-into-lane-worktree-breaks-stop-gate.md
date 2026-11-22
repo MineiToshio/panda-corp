@@ -11,8 +11,8 @@ created: 2026-10-19
 status: active   # 2026-11-15 (librarian eval-gate): cross-project corroboration (funko-tracker + panda-corp), schema-valid, no contradiction
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [LESSON-0125, LESSON-0155]
 ---
 

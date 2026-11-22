@@ -11,8 +11,8 @@ created: 2026-10-31
 status: active
 promotion: approved
 confidence: medium
-times_applied: 3
-applied_in: [funko-tracker, mission-control, personal-page-v2]
+times_applied: 4
+applied_in: [funko-tracker, mission-control, personal-page-v2, panda-corp]
 links: [DR-144, DR-078]
 ---
 

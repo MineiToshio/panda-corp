@@ -11,8 +11,8 @@ created: 2026-11-01
 status: active   # 2026-11-01 librarian eval-gate: the 3 folded facets already span 2 distinct projects (funko-tracker + mission-control) with zero contradicting evidence, meeting the cross-corroboration bar
 promotion: proposed   # 2026-11-01 (librarian review, refined 2026-11-11) — target: factory/standards/build-orchestration.md, DR-141 batch-integration procedure: add an explicit "integration verification" sub-step, distinct from each lane's own gate — (1) require the assembled integration branch to have LINEAR history (squash-built, no merge commits of its own) before handing it to a rebase-based merge-queue.sh; (2) when resolving a conflict between two lanes touching the same artifact, classify it additive (independent content → keep both) vs competing-implementation (same concern, different mechanism → determine which one actually governs the runtime/rendered result before discarding the other) rather than resolving uniformly; (3) re-run any check whose correctness depends on a cross-cutting guard/boundary (security PoCs, global lint rules, auth boundaries, OR an exact call-site pin like `staticDependencies`/`createRequire` tracking — added 2026-11-11, funko-tracker) against the FULLY INTEGRATED tree, not just against each source lane — per-lane review cannot see a problem that only exists once lanes are combined.
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [LESSON-0548, LESSON-0589, LESSON-0590, DR-141]
 ---
 

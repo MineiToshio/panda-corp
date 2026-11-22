@@ -9,10 +9,10 @@ source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-03 — e2e/home-fide
 provenance: agent-inferred
 created: 2026-07-04
 status: active
-promotion: none
+promotion: proposed
 confidence: medium
-times_applied: 2
-applied_in: [mission-control, funko-tracker]
+times_applied: 3
+applied_in: [mission-control, funko-tracker, panda-corp]
 links: [LESSON-0040, LESSON-0185]
 ---
 
@@ -40,3 +40,5 @@ that app — there is never a quiet-network moment to detect. Before picking `wa
 check whether it opens a long-lived connection by design; if so, `networkidle` is categorically wrong,
 not just risky, and `domcontentloaded` + an explicit selector/ready-signal wait is the only correct
 choice.
+
+**Auto-proposed for promotion** (2026-11-22): cited by 3 projects (mission-control, funko-tracker, panda-corp) — measured by count-lesson-citations.sh. Target/rationale to be refined by the next `/pandacorp:memory review`; approval is `/pandacorp:learn` + the owner (DR-047 high-risk gate).

@@ -11,8 +11,8 @@ created: 2026-07-12
 status: active
 promotion: none
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [DR-118, LESSON-0187, DR-145, BL-0304]
 ---
 

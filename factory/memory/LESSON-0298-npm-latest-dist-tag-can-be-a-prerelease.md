@@ -11,8 +11,8 @@ created: 2026-10-13
 status: active  # 2026-10-18 (librarian review) — cross-corroborated by 2 distinct citing projects (pandasaga, funko-tracker), eval-gate bar met
 promotion: proposed   # 2026-10-18 (librarian review) — target: factory/standards/dependency-lifecycle.md (add "verify a stack proposal's `latest` dist-tag is not a pre-release" as a standing stack-research step). Cited by 2 distinct projects (pandasaga, funko-tracker) with zero contradicting evidence — every architecture/stack-proposal research pass reads npm's `latest` tag, so this is cheap, recurring insurance against silently pinning a pre-release.
 confidence: medium
-times_applied: 2
-applied_in: [pandasaga, funko-tracker]
+times_applied: 3
+applied_in: [pandasaga, funko-tracker, panda-corp]
 links: []
 ---
 

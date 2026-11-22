@@ -11,8 +11,8 @@ created: 2026-10-19
 status: deprecated
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [LESSON-0429, LESSON-0431, LESSON-0438, LESSON-0439, LESSON-0441, LESSON-0131, LESSON-0040]
 ---
 

@@ -11,8 +11,8 @@ created: 2026-11-19
 status: active   # owner-stated: eligible for immediate activation per the eval-gate
 promotion: none
 confidence: high
-times_applied: 0
-applied_in: [mission-control]
+times_applied: 2
+applied_in: [mission-control, panda-corp]
 links: [DR-160, DR-036, DR-134]
 ---
 

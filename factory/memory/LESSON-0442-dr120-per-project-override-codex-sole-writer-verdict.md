@@ -11,8 +11,8 @@ created: 2026-10-19
 status: active   # 2026-10-25 librarian review: eval-gate catch-up — provenance owner-stated already met the OR-clause bar (missed activation at harvest step 4, BL-0090-class gap)
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [LESSON-0067, LESSON-0437]
 ---
 

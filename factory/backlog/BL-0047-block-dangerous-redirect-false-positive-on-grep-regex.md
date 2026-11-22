@@ -114,6 +114,15 @@ matcher (a bare `echo "$cmd" | grep -Eq '<pattern>'` with no quote-stripping at 
 command's own argument text as a real recursive delete. See `factory/memory/LESSON-0105` (14th/15th
 corroboration) for the generalized workaround in the meantime.
 
+## Corroborating occurrence (2026-11-21, funko-tracker, harvested via /pandacorp:memory) — the heredoc-body gap is language-agnostic
+A live reproduction confirming the heredoc-body gap (first flagged in the 2026-09-24 corroboration above)
+extends past English: a worker-brief prompt authored in Spanish via a `cat <<EOF` bash heredoc was blocked
+because its body contained ordinary task-instruction vocabulary that happens to resemble destructive-command
+words in Spanish (`borra`/`elimina`, "delete"/"remove"), tripping the same whole-command-string matcher with
+no awareness that the text was natural-language instruction prose, not a command, in ANY language. Worked
+around by authoring the prompt with the Write tool instead of a bash heredoc. See `factory/memory/LESSON-0105`
+(20th corroboration) for the generalized workaround.
+
 ## Root cause
 The redirect scanner (line 101) is a bare textual pattern match with no shell-tokenization/quote-awareness:
 it cannot distinguish an actual redirect operator from a `>` character that is merely PART of an argument

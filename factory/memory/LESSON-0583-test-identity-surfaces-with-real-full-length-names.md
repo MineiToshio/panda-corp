@@ -11,8 +11,8 @@ created: 2026-11-01
 status: active   # owner-stated; eval-gate (DR-047) qualifies it for immediate activation
 promotion: none
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: []
 ---
 
