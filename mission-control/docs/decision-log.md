@@ -1,5 +1,14 @@
 # Decision Log — Mission Control
 
+## 2026-11-21 — Pandacorp overlay upgraded 9.9.5 → 9.9.6
+
+Sync the project guide and managed AGENTS block with the goal-based implement skill.
+The JavaScript build CLI remains a fallback for runs it started. Refresh the
+quality and testing rule with the canonical test identity guidance.
+
+Preserve the project-specific navigation scope in Knip. The canary passed 11/11
+and Knip exited successfully. Full verification is deferred to the integration queue.
+
 ## 2026-11-21 — Upgrade full-name/declaration identities to overlay 9.9.5
 
 Sync policy/helper and verify byte-identical to factory templates and bump only
