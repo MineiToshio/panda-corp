@@ -9,7 +9,7 @@ source: "funko-tracker .pandacorp/run/lessons.md 2026-10 harvest (owner-stated);
 provenance: owner-stated
 created: 2026-10-17
 status: active
-promotion: none
+promotion: proposed   # 2026-11-23 (librarian review) -- 2-project corroboration (funko-tracker, panda-corp); target factory/standards/conventions.md or quality.md
 confidence: high
 times_applied: 2
 applied_in: [funko-tracker, panda-corp]
@@ -38,3 +38,5 @@ open-ended review loop on genuinely complex/concurrent code is not merely low-RO
 actively make total risk worse round over round. Cap the rounds in advance (one independent pass, fix,
 ship; defer remainder) rather than continuing "until it looks clean," especially on concurrency-shaped
 code where a fix is itself a new place to introduce a bug.
+
+**Target/rationale (2026-11-23, librarian review):** promote as a SHOULD rule in `factory/standards/conventions.md` or `quality.md` ("cap review/audit rounds in advance") — once an independent audit judges a hand-off sufficient, further passes chasing smaller nits are low-ROI by default, and on genuinely complex/concurrent code an open-ended review loop can actively diverge (defect count can drop round-over-round while each fix introduces new surface, per the panda-corp corroboration). Pairs with LESSON-0661 (review-shopping anti-pattern) and DR-072 (no endless build-engine reject/rebuild loop) but generalizes the principle beyond the build engine to any human/agent review loop. 2-project corroboration (funko-tracker, panda-corp), owner-stated, high confidence.

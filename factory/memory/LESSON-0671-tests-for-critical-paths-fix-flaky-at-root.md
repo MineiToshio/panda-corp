@@ -9,7 +9,7 @@ source: "funko-tracker .pandacorp/run/lessons.md 2026-11-09 (owner-stated): 'Una
 provenance: owner-stated
 created: 2026-11-11
 status: active
-promotion: none
+promotion: proposed   # 2026-11-23 (librarian review) -- 2-project corroboration (funko-tracker, panda-corp), owner-stated; target rules/quality-and-testing.md
 confidence: medium
 times_applied: 2
 applied_in: [funko-tracker, panda-corp]
@@ -37,3 +37,5 @@ resource contention, not code regression, into an explicit policy on how it must
 proposing new tests or auditing an existing suite's size, scope coverage to critical paths (money, data,
 auth, publication integrity, core user flows) explicitly, and treat a bloated low-value test suite as a
 legitimate target for trimming, not just growth.
+
+**Target/rationale (2026-11-23, librarian review):** promote as a testing-philosophy SHOULD rule in `plugin/templates/rules/quality-and-testing.md` — a non-deterministic test is fixed at its ROOT (fake timers, an injected clock, DB isolation, deterministic fixtures) or deleted, never patched by widening a timeout or adding a retry; and tests are scoped to critical paths (money, data, auth, publication integrity, core flows), not reflexively written for everything. Distinct from the existing engine-level "no retries" rule in `quality.md` (DR-146, which governs the gate's own re-run behavior) — this is an authoring-level rule about what a test's OWN code may do, and about test-suite scope/size discipline. 2-project corroboration (funko-tracker, panda-corp), owner-stated explicit policy, medium confidence.

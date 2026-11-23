@@ -9,7 +9,7 @@ source: "funko-tracker .pandacorp/run/lessons.md 2026-10 harvest (agent-inferred
 provenance: agent-inferred
 created: 2026-10-13
 status: active
-promotion: none
+promotion: proposed   # 2026-11-23 (librarian review) -- 2-project corroboration (funko-tracker, panda-corp), 3 sub-facets; target rules/quality-and-testing.md or infra.md
 confidence: medium
 times_applied: 2
 applied_in: [funko-tracker, panda-corp]
@@ -46,3 +46,5 @@ system-Chrome fallback is reachable without editing checked-in config. In that c
 `playwright install chromium` (fetching the EXACT revision the installed Playwright version expects) is
 the correct, intended fix — don't treat it as "giving up" on the fallback approach; check first whether an
 `executablePath` override is even an option before reaching for either cache-based fallback.
+
+**Target/rationale (2026-11-23, librarian review):** promote the 3-facet diagnostic (check for a cached alternate Chromium revision → check for a system-Chrome `executablePath` fallback → if neither is reachable because the project's own `playwright.config.ts` takes no override, run a one-time `playwright install chromium` for the exact expected revision) as a troubleshooting note in `plugin/templates/rules/quality-and-testing.md` or `factory/standards/infra.md` (Playwright/browser-install gotchas). 2-project corroboration (funko-tracker, panda-corp) with 3 independently-evidenced sub-facets; saves a builder from treating a missing browser revision as "the product/environment is broken."

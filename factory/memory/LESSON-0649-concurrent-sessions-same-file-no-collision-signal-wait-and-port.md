@@ -8,7 +8,7 @@ trigger: use this when diagnosing repeated, re-surfacing rebase/merge conflicts 
 source: "funko-tracker .pandacorp/run/lessons.md 2026-11-08/09: two parallel sessions fixed the same review HTML at once (duplicate modal, duplicate reviewTemplateV32), causing three separate rebase conflicts with no signal warning that another session was editing the same files (agent-inferred); the owner's resolution, applied directly: wait for the other session to go idle, branch from current main, and port only the missing guarantees instead of resolving conflicts repeatedly (owner-stated: 'Sí, espera y porta')"
 provenance: owner-stated
 created: 2026-11-09
-status: candidate
+status: active   # 2026-11-23 (librarian review, closing BL-0090 advisory): eval-gate met — schema-valid, provenance owner-stated, candidate >=14d, no contradiction found against LESSON-0158/LESSON-0452 (adjacent but distinct concurrency-collision scenarios)
 promotion: none
 confidence: medium
 times_applied: 1

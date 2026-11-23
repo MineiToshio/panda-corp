@@ -9,7 +9,7 @@ source: "funko-tracker .pandacorp/run/lessons.md 2026-10-25 (owner-stated) — t
 provenance: owner-stated
 created: 2026-10-28
 status: active
-promotion: none
+promotion: proposed   # 2026-11-23 (librarian review) -- 2-project corroboration (funko-tracker, panda-corp); target factory/standards/design.md
 confidence: medium
 times_applied: 2
 applied_in: [funko-tracker, panda-corp]
@@ -34,3 +34,5 @@ arrows/dots, existing buttons, badges, metadata) and explicitly verify the new e
 does not crowd, overlap, or change the usability of any of them — include that check in the mockup
 itself (e.g. render the carousel in its actual state), not just in a written note that it was
 "considered."
+
+**Target/rationale (2026-11-23, librarian review):** promote as a mockup/UI-proposal review-checklist item in `factory/standards/design.md`, alongside the existing anti-omission (DR-058 §1c) and cross-surface-cohesion (DR-062) checklists — before presenting a mockup that adds or repositions a control on an existing component, enumerate every OTHER control/decoration already on it and verify the new element doesn't crowd/overlap/change their usability, rendering the component in its actual state rather than noting "considered" in prose. 2-project corroboration (funko-tracker, panda-corp), owner-stated, medium confidence.

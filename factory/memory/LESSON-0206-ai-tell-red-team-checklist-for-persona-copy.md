@@ -9,7 +9,7 @@ source: "personal-page-v2 .pandacorp/run/lessons.md 2026-09-08: (owner-stated) t
 provenance: owner-stated
 created: 2026-09-08
 status: active
-promotion: none
+promotion: proposed   # 2026-11-23 (librarian review) -- 2-project corroboration (personal-page-v2, panda-corp); target plugin/agents/copywriter.md
 confidence: high
 times_applied: 2
 applied_in: [personal-page-v2, panda-corp]
@@ -48,3 +48,5 @@ and a dedicated "sounds like AI" pass
 checking for missing contractions, "the AI" with an article, impersonal comparative aphorisms, and any
 target-language-specific tells. Ask the owner up front for their concrete acceptance bar (formality level,
 tone words to avoid) rather than guessing it.
+
+**Target/rationale (2026-11-23, librarian review):** promote the 8-criterion red-team checklist (traceability, privacy, positioning balance, native-ES phrasing, native-EN phrasing, sounds-like-AI, scannability, coherence) as the `copywriter` agent's standing SOP in `plugin/agents/copywriter.md`, run before any first-person persona/biographical copy reaches the visual/content gate. 2-project corroboration (personal-page-v2, panda-corp), owner-stated acceptance bar, high confidence — this is exactly the kind of "the reviewer praises/owner accepts the same approach twice" recurrence DR-047 asks for before promoting a pattern.

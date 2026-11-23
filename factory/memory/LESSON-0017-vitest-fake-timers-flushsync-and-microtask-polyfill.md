@@ -9,7 +9,7 @@ source: mission-control lessons.md (2026-06-16) — WO building the CopyButton/c
 provenance: agent-inferred
 created: 2026-06-30
 status: candidate
-promotion: none
+promotion: proposed   # 2026-11-23 (librarian review) -- 2-project corroboration (mission-control, panda-corp); target rules/quality-and-testing.md
 confidence: medium
 times_applied: 2
 applied_in: [mission-control, panda-corp]
@@ -34,3 +34,5 @@ a flaky/failing test even though the component behaves correctly in the browser.
 needs `flushSync` in the callback (or an equivalent explicit `act()` wrap) to avoid a false-flaky DOM
 assertion; keep the microtask-polyfill + its type augmentation together in `vitest.setup.ts`, never split
 across a `.d.ts`.
+
+**Target/rationale (2026-11-23, librarian review):** promote as a standing gotcha note in `plugin/templates/rules/quality-and-testing.md` ("React + vitest fake timers") — wrap a `setTimeout`-driven state revert in `flushSync` and keep the microtask-polyfill + its type augmentation inside `vitest.setup.ts` itself, never a standalone `.d.ts`. Corroborated across 2 distinct projects (mission-control, panda-corp) with no contradicting evidence; a recurring React+vitest testing trap worth a standing rule rather than a per-project rediscovery.

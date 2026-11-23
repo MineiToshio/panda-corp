@@ -9,7 +9,7 @@ source: "funko-tracker .pandacorp/run/lessons.md 2026-11-08 (owner-stated): the 
 provenance: owner-stated
 created: 2026-11-09
 status: active
-promotion: none
+promotion: proposed   # 2026-11-23 (librarian review) -- 2-project corroboration (funko-tracker, panda-corp); target factory/standards/quality.md
 confidence: high
 times_applied: 2
 applied_in: [funko-tracker, panda-corp]
@@ -33,3 +33,5 @@ purpose of directing human attention, don't let "accepted" mean "skip reviewing 
 spot-check (or fully audit, when the batch size allows) accepted items too, specifically for defect
 classes the automated check is known or suspected to miss (framing, cropping, blur, legibility) rather
 than trusting its flag as complete coverage.
+
+**Target/rationale (2026-11-23, librarian review):** promote as a companion rule to LESSON-0621 in `factory/standards/quality.md` ("a review gate's flag is a lower bound, not an upper bound") — any review/approval flow that distinguishes flagged vs accepted items must budget time to spot-check accepted items too, for the defect classes the classifier is known to miss; an automated "accepted" status is not proof of quality. 2-project corroboration (funko-tracker, panda-corp), owner-stated, high confidence.

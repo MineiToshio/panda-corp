@@ -9,7 +9,7 @@ source: "personal-page-v2 .pandacorp/run/lessons.md — useReveal (.reveal/.stag
 provenance: agent-inferred
 created: 2026-07-03
 status: candidate
-promotion: none
+promotion: proposed   # 2026-11-23 (librarian review) -- 2-project corroboration (mission-control, panda-corp) plus 3 further personal-page-v2 recurrences; target plugin/templates/stack-a-nextjs/STACK.md visual-gate recipe
 confidence: medium
 times_applied: 2
 applied_in: [mission-control, panda-corp]
@@ -46,3 +46,5 @@ screenshot taken without an actual scroll-through never triggers native lazy-ima
 below-the-fold `<img loading="lazy">`/`next/image` content also bakes an empty/placeholder box into the
 blessed baseline — set `loading="eager"`/`priority`, or force-load images the same way (a) or (b) force
 reveal nodes, before trusting a fullPage baseline that includes lazy-loaded images as real coverage.
+
+**Target/rationale (2026-11-23, librarian review):** promote as a new rule in `plugin/templates/stack-a-nextjs/STACK.md`'s visual-gate recipe ("scroll-reveal primitives and `fullPage` baselines") — any scroll-reveal/IntersectionObserver primitive must force its settled/visible end-state under `navigator.webdriver` (and `@media print`), not merely disable its CSS transition, before a `fullPage` Playwright baseline can be trusted; otherwise a `blessed:true` baseline can silently encode a mostly-blank or partially-blank page as correct. Evidence is unusually strong: 2-project cross-corroboration (mission-control, panda-corp) plus three further independent recurrences within personal-page-v2 alone (the home/projects surfaces, a second-order responsive-overflow discovery once reveals became measurable, and the identical blind spot hitting plain `next/image loading="lazy"` below-the-fold images). Not yet codified anywhere in `design.md` or the canonical gate templates — a real gap in the DR-056/DR-074 visual-fidelity gate family.

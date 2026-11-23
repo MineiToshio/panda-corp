@@ -9,7 +9,7 @@ source: "funko-tracker .pandacorp/run/lessons.md 2026-11-04 (owner-stated): an L
 provenance: owner-stated
 created: 2026-11-05
 status: active
-promotion: none
+promotion: proposed   # 2026-11-23 (librarian review) -- 2-project corroboration (panda-corp, funko-tracker), 7 linked lessons; target factory/standards/quality.md
 confidence: medium
 times_applied: 2
 applied_in: [panda-corp, funko-tracker]
@@ -67,3 +67,5 @@ several retailer sources had been upscaled server-side (e.g. to 1400-1600px from
 and cleared an 800px-wide rule while looking visibly soft. Add (8): pair the pixel-dimension floor with a
 sharpness/variance check (e.g. Laplacian variance, roughly >=2400 at 800px as a starting threshold) — pixel
 count alone cannot distinguish a genuinely sharp source from an upscaled soft one.
+
+**Target/rationale (2026-11-23, librarian review):** promote as a reviewer-gate design rule in `factory/standards/quality.md` ("an LLM/vision-model reviewer is not a sufficient sole gate") — pair any LLM-based review step with deterministic/mechanical checks for the specific defect classes it reliably misses (cross-view duplicates, content mismatch, cut-off/part-loss, mislabeling, sub-native resolution, framing/angle), and give the reviewer full-resolution crops rather than a downscaled multi-image sheet that can itself manufacture false rejects. This generalizes beyond image-catalog review to any pipeline treating an LLM judge as the sole gate (constitution §24's independent-oracle principle, applied to AI-reviewer design specifically). 2-project corroboration (panda-corp, funko-tracker) with 7 linked evidence lessons, owner-stated, medium confidence — one of the best-evidenced clusters in the store.

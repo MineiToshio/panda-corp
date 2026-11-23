@@ -9,7 +9,7 @@ source: "mission-control commit 7b0d60c3 (2026-10-20), test mission-control/src/
 provenance: ci-verified
 created: 2026-10-21
 status: active
-promotion: none
+promotion: proposed   # 2026-11-23 (librarian review) -- 2-project corroboration (mission-control, panda-corp), ci-verified; target rules/quality-and-testing.md
 confidence: high
 times_applied: 2
 applied_in: [mission-control, panda-corp]
@@ -35,3 +35,5 @@ itself the tell: a correctly hermetic test suite's result must not depend on whi
 the TEST HARNESS (not each individual test) must force that default root to be catalog-absent (point it at
 an empty/known root) and require fixtures to opt in to the real reader explicitly via an injected path. Diagnose any test that passes in a clean clone/worktree but fails only in the main checkout as a hermeticity
 leak of the owner's private state before assuming environment flakiness.
+
+**Target/rationale (2026-11-23, librarian review):** promote as a standing hermetic-test rule in `plugin/templates/rules/quality-and-testing.md` — a module that resolves a catalog/identity/config source from an implicit DEFAULT root must have its TEST HARNESS (not each individual test) force that default root to be catalog-absent, with fixtures opting in to the real reader explicitly via an injected path; a suite that passes in a clean clone/worktree but fails only in the owner's main checkout is a hermeticity leak of private state, not environment flakiness. ci-verified (fixed by mission-control commit 7b0d60c3), 2-project corroboration (mission-control, panda-corp), high confidence — a DR-033/private-state hermeticity gap not yet covered by an existing testing rule.

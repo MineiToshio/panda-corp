@@ -9,7 +9,7 @@ source: "funko-tracker .pandacorp/run/lessons.md 2026-11-03 (agent-inferred): th
 provenance: owner-stated
 created: 2026-11-04
 status: active
-promotion: none
+promotion: proposed   # 2026-11-23 (librarian review) -- 2-project corroboration (funko-tracker, panda-corp); target factory/standards/build-orchestration.md or quality.md
 confidence: medium
 times_applied: 2
 applied_in: [funko-tracker, panda-corp]
@@ -46,3 +46,5 @@ approval, design the gate to recognize an approval already given on the SAME art
 hashes/content) through an earlier step, rather than re-asking by default just because a later pipeline
 stage happens to also have an approval checkpoint — bind the approval requirement to the CONTENT being
 approved, not to each step that could theoretically ask for one.
+
+**Target/rationale (2026-11-23, librarian review):** promote as a human-gate design rule in `factory/standards/build-orchestration.md` or `quality.md` ("bind an attended gate's approval requirement to the CONTENT reviewed, not to each step that could ask") — neither a stale blanket upfront "don't ask me" authorization nor a second, differently-shaped re-approval of content the owner already explicitly approved through an earlier surface should satisfy or require a fresh gate; tie the requirement to the artifact's identity (e.g. file hashes already approved) instead. 2-project corroboration (funko-tracker, panda-corp), owner-stated, medium confidence — a recurring friction point in attended gates worth a standing design rule.
