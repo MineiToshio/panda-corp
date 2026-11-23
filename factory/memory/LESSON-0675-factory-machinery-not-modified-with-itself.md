@@ -11,8 +11,8 @@ created: 2026-11-13
 status: active
 promotion: none
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [mission-control]
 links: [DR-103, DR-150]
 ---
 
