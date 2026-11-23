@@ -562,3 +562,19 @@ every `<!--...-->` block... before counting"). Recorded only to reinforce that t
 remains unfixed as of this date. No new backlog item; checked against LESSON-0008 per this item's own
 standing precedent, no new lesson warranted. Source: factory/memory/_inbox.md agent-inferred note
 (2026-11-18, same sweep).
+
+## Corroborating occurrence (2026-11-23) — a stale/overcounted figure propagated INTO a dispatching prompt itself, not just a routine's internal PASO 0 message
+
+A new propagation surface for the same root bug: this harvest pass was dispatched with an explicit claim
+of "29 líneas pendientes" in `factory/memory/_inbox.md`. Direct verification (the raw file tail, read via
+the `Read` tool rather than any regex/line-count shortcut) found the file ends at line 2237 with
+`<!-- No live notes pending as of 2026-11-22. -->` and strictly nothing after it — the true live count was
+**0**, confirmed against `count-lesson-citations.sh`'s no-op recount and `git log` showing the prior
+harvest (`8c12ded5`, 2026-11-22) had already drained the then-live tail the same day. This is the first
+occurrence on record where the overcount wasn't just an internal PASO 0 self-check caught by the same
+agent before acting on it — it was handed to a dispatched sub-agent as the premise for the task itself, one
+layer further from the file than every prior occurrence. No new fix-design information (the already-
+converged marker-anchor technique, 2026-10-25, again resolved it correctly by hand); reinforces that
+whatever surfaces this count (a scheduled routine OR an orchestrator briefing a sub-task) needs the same
+fix, not just the routine's own internal step. No new backlog item — same item, same scope. Source: this
+harvest dispatch's own task framing (2026-11-23).
