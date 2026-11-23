@@ -27,7 +27,9 @@
       "Bash(bash plugin/scripts/test-merge-queue-certified-tree.sh:*)",
       "Bash(git grep *)",
       "mcp__ccd_session_mgmt__get_usage",
-      "mcp__ccd_session_mgmt__list_events"
+      "mcp__ccd_session_mgmt__list_events",
+      "Bash(codex --help)",
+      "mcp__ccd_connectors__session_connectors_status"
     ],
     "deny": [
       "Bash(rm -rf:*)",
