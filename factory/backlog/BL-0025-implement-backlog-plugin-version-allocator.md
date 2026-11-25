@@ -119,3 +119,15 @@ for — there is still no single serialized writer computing "current + 1" (fix 
 bump mechanism is still open), and the memory-harvest concurrency guard (fix plan item 2) is untouched.
 The interim fix only makes an already-occurred collapse VISIBLE; it does not prevent it. Item stays
 `status: open`.
+
+## Note (annotated 2026-11-23, item stays open)
+
+A **live near-miss on the memory-harvest race** (fix plan item 2, still unguarded): the scheduled
+2026-11-23 sweep launched 5 parallel librarian agents (factory inbox + funko-tracker + mission-control +
+pandasaga + personal-page-v2), all reading/writing `factory/memory/` (LESSON ids, `INDEX.md`) and
+`factory/backlog/` against the same main checkout with no isolation. Verified after the fact: 0 duplicate
+LESSON/BL ids across the 5 harvests — but only because each agent was told ad hoc to "check the max id
+right before writing," not because any allocator exists. No collapsed-bump-style signal would have fired
+here even if a collision had happened (that detection only covers `plugin.json`, not `LESSON-NNNN`/
+`INDEX.md`). This corroborates fix plan item 2 with a real, recent occurrence of exactly the race
+described in the Problem section — raises priority; still open, still unfixed.
