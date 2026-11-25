@@ -29,7 +29,13 @@
       "mcp__ccd_session_mgmt__get_usage",
       "mcp__ccd_session_mgmt__list_events",
       "Bash(codex --help)",
-      "mcp__ccd_connectors__session_connectors_status"
+      "mcp__ccd_connectors__session_connectors_status",
+      "mcp__computer-use__app_screenshot",
+      "mcp__computer-use__app_list_windows",
+      "mcp__terminal__read_terminal",
+      "mcp__computer-use__list_apps",
+      "mcp__visualize__read_me",
+      "mcp__claude-in-chrome__read_page"
     ],
     "deny": [
       "Bash(rm -rf:*)",
