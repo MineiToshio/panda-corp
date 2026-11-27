@@ -8,7 +8,7 @@ Owner-approved policy. On 2026-11-24 funko-tracker alone had used 1,810 of the a
 
 Supersessions, completed in the same change: DR-140 / INFRA-1's "development uses the Neon dev branch" (infra.md, external-services.md, stack.md, Stack A/B/C guides, the external-services rule, the architecture template, environment delivery, the devops agent). DR-138 / INFRA-7 keeps push-to-main as the default but now allows the T1 owner-dispatched deploy of `origin/main`; `block-dangerous.sh` blocks an agent-run dispatch without `PANDACORP_OWNER_RELEASE_OK=1`. The CI framing in quality.md, performance.md, the web-security rule, the Stack A guide and architecture step 8 now matches U1–U4.
 
-New projects get `plugin/templates/stack-a-nextjs/.github/workflows/ci.yml` at architecture. Upgrade never overwrites an existing project's workflow; it reports deviations through `check-ci-quota.mjs`. The alert is `.github/workflows/actions-usage-alert.yml` with `plugin/scripts/actions-usage-alert.mjs`. It stays inert until the owner creates the `GH_BILLING_TOKEN` secret (steps in INFRA-14). Plugin 11.1.0, overlay 9.10.0.
+New projects get `plugin/templates/stack-a-nextjs/.github/workflows/ci.yml` at architecture. Upgrade never seeds, overwrites or commits a project's workflow; it reports a missing `ci.yml` or deviations through `check-ci-quota.mjs` as suggestions. The alert is `.github/workflows/actions-usage-alert.yml` with `plugin/scripts/actions-usage-alert.mjs`. It stays inert until the owner creates the `GH_BILLING_TOKEN` secret (steps in INFRA-14). Plugin 11.1.0, overlay 9.10.0.
 
 ## 2026-11-21 — Accept legitimate repeated parameterized titles by construction
 

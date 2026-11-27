@@ -49,6 +49,14 @@
     { "pattern": ["vercel", "--prod"], "decision": "forbidden", "justification": "Production release requires the owner gate." },
     { "pattern": ["vercel", "deploy"], "decision": "forbidden", "justification": "Vercel deploys run only from GitHub: the Git integration or the owner-dispatched deploy workflow (DR-138, DR-166)." },
     { "pattern": ["vercel", "redeploy"], "decision": "forbidden", "justification": "Vercel deploys run only from GitHub: the Git integration or the owner-dispatched deploy workflow (DR-138, DR-166)." },
+    { "pattern": ["pnpm", "deploy:prod"], "decision": "prompt", "justification": "Dispatching the production deploy of origin/main is the owner's production gate (DR-004, DR-166 T1); run it only on the owner's explicit order, prefixed with PANDACORP_OWNER_RELEASE_OK=1." },
+    { "pattern": ["pnpm", "run", "deploy:prod"], "decision": "prompt", "justification": "Dispatching the production deploy of origin/main is the owner's production gate (DR-004, DR-166 T1); run it only on the owner's explicit order, prefixed with PANDACORP_OWNER_RELEASE_OK=1." },
+    { "pattern": ["npm", "run", "deploy:prod"], "decision": "prompt", "justification": "Dispatching the production deploy of origin/main is the owner's production gate (DR-004, DR-166 T1); run it only on the owner's explicit order, prefixed with PANDACORP_OWNER_RELEASE_OK=1." },
+    { "pattern": ["yarn", "deploy:prod"], "decision": "prompt", "justification": "Dispatching the production deploy of origin/main is the owner's production gate (DR-004, DR-166 T1); run it only on the owner's explicit order, prefixed with PANDACORP_OWNER_RELEASE_OK=1." },
+    { "pattern": ["bash", "scripts/deploy/deploy-production.sh"], "decision": "prompt", "justification": "Dispatching the production deploy of origin/main is the owner's production gate (DR-004, DR-166 T1); run it only on the owner's explicit order, prefixed with PANDACORP_OWNER_RELEASE_OK=1." },
+    { "pattern": ["./scripts/deploy/deploy-production.sh"], "decision": "prompt", "justification": "Dispatching the production deploy of origin/main is the owner's production gate (DR-004, DR-166 T1); run it only on the owner's explicit order, prefixed with PANDACORP_OWNER_RELEASE_OK=1." },
+    { "pattern": ["gh", "workflow", "run", "deploy-production.yml"], "decision": "prompt", "justification": "Dispatching the production deploy of origin/main is the owner's production gate (DR-004, DR-166 T1); run it only on the owner's explicit order, prefixed with PANDACORP_OWNER_RELEASE_OK=1." },
+    { "pattern": ["gh", "workflow", "run", "Deploy production"], "decision": "prompt", "justification": "Dispatching the production deploy of origin/main is the owner's production gate (DR-004, DR-166 T1); run it only on the owner's explicit order, prefixed with PANDACORP_OWNER_RELEASE_OK=1." },
     { "pattern": ["claude"], "decision": "forbidden", "justification": "Codex may not dispatch or steer the Claude runtime." }
   ]
 }

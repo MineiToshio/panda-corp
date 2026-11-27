@@ -63,13 +63,25 @@ jobs:
     steps:
       - run: bash .pandacorp/verify.sh --light
 `;
-assert.deepEqual(analyzeWorkflow(gated).map((f) => f.rule), ['U4'], 'only the slow timeout on the fast job');
+const gatedFindings = analyzeWorkflow(gated);
+assert.deepEqual(gatedFindings.map((f) => f.rule), ['U2', 'U4'], 'old concurrency pattern + the slow timeout on the fast job');
+assert.match(gatedFindings[0].message, /unconditional `cancel-in-progress: true`/);
+// The template's conditional, per-event concurrency is not flagged; a push/PR-only workflow may cancel unconditionally.
+const fixed = gated.replace('group: ci-${{ github.ref }}\n  cancel-in-progress: true', "group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}\n  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' && github.event_name != 'schedule' }}");
+assert.notEqual(fixed, gated);
+assert.deepEqual(analyzeWorkflow(fixed).map((f) => f.rule), ['U4']);
+const pushOnly = gated.replace('  workflow_dispatch:\n', '').replace("    if: github.event_name == 'workflow_dispatch'\n", '');
+assert.ok(!analyzeWorkflow(pushOnly).some((f) => /unconditional/.test(f.message)));
 
 // 4. Sub-hourly crons are flagged (U5); hourly and daily are not.
 const crons = `on:
   schedule:
     - cron: "*/15 * * * *"
+    - cron: "*/30 * * * *"
+    - cron: "0,30 * * * *"
+    - cron: "0-5 * * * *"
     - cron: "17 * * * *"
+    - cron: "17 */6 * * *"
     - cron: "17 6 * * 1"
 jobs:
   ping:
@@ -78,7 +90,9 @@ jobs:
     steps:
       - run: echo ok
 `;
-assert.deepEqual(analyzeWorkflow(crons).map((f) => f.rule), ['U5']);
+const cronFindings = analyzeWorkflow(crons);
+assert.deepEqual(cronFindings.map((f) => f.rule), ['U5', 'U5', 'U5', 'U5'], 'every-15, every-30, comma list and minute range');
+assert.deepEqual(cronFindings.map((f) => f.message.match(/`([^`]+)`/)[1]), ['*/15 * * * *', '*/30 * * * *', '0,30 * * * *', '0-5 * * * *']);
 
 // 5. No `on:` block is reported as unreadable, never as compliant.
 assert.equal(analyzeWorkflow('jobs:\n  a:\n    runs-on: x\n')[0].rule, 'unreadable');
@@ -99,6 +113,11 @@ try {
   const cli = spawnSync(process.execPath, [join(here, 'check-ci-quota.mjs'), root], { encoding: 'utf8' });
   assert.equal(cli.status, 0);
   assert.match(cli.stdout, /project-owned and differs from the template: not overwritten/);
+  const empty = mkdtempSync(join(tmpdir(), 'ci-quota-none-'));
+  const none = spawnSync(process.execPath, [join(here, 'check-ci-quota.mjs'), empty], { encoding: 'utf8' });
+  rmSync(empty, { recursive: true, force: true });
+  assert.equal(none.status, 0);
+  assert.match(none.stdout, /missing CI: .*upgrade never seeds or commits it/);
   assert.equal(readFileSync(join(wf, 'ci.yml'), 'utf8'), legacy, 'the checker never edits the workflow');
   const bad = spawnSync(process.execPath, [join(here, 'check-ci-quota.mjs')], { encoding: 'utf8' });
   assert.equal(bad.status, 2);

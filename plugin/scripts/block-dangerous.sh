@@ -666,8 +666,9 @@ done <<< "$server_segments"
 # the exact command after the owner's OK is the approved path — the block message says so).
 echo "$cmd" | grep -Eq '(^|[[:space:];&|])vercel( .*)? (--prod|deploy .*--prod)' && block "production deploy = human gate (DR-004): present staging + costs, get the owner's explicit OK first"
 
-# DR-138 / INFRA-7: Vercel deploys come ONLY from the GitHub integration (a push to `main` = production,
-# a push to any other branch = preview). A CLI upload (`vercel`, `vercel deploy`, `vercel redeploy`,
+# DR-138 / INFRA-7: Vercel deploys come ONLY from GitHub: the Git integration by default (a push to
+# `main` = production, a push to any other branch = preview) or, under DR-166 T1 / INFRA-15, the
+# owner-dispatched deploy workflow, which runs the Vercel CLI on a GitHub runner (gated below). A CLI upload (`vercel`, `vercel deploy`, `vercel redeploy`,
 # with or without --prod) is never the path, owner OK or not — setup subcommands (link, env, git
 # connect, project, domains, logs, rollback) and --version/--help stay allowed.
 while IFS= read -r seg; do
@@ -689,7 +690,7 @@ done <<< "$gate_segments"
 
 # DR-138 / INFRA-8: once a project is LAUNCHED externally (status.yaml `phase: release` and a
 # deploy_target other than `internal`; a missing deploy_target counts as external, fail-safe), GitHub
-# `main` IS production — Vercel ships every push to it. Publishing to main therefore needs the owner's
+# `main` IS production — Vercel ships every push to it (under DR-166 T1 it is the only deploy source). Publishing to main therefore needs the owner's
 # explicit order in chat; the agent then re-runs the push prefixed with PANDACORP_OWNER_RELEASE_OK=1.
 # Pre-launch projects, internal tools and the factory are unaffected.
 launched_status=""
@@ -722,20 +723,49 @@ if [ -n "$launched_status" ] \
         case "$dst" in main|refs/heads/main) to_main=1 ;; esac
       done
     fi
-    [ "$to_main" = 1 ] && block "this project is LAUNCHED: GitHub main is production and Vercel deploys every push to it (DR-138). Push your branch for a preview instead; publish to main only after the owner's explicit order in chat, then re-run prefixed with PANDACORP_OWNER_RELEASE_OK=1"
+    [ "$to_main" = 1 ] && block "this project is LAUNCHED: GitHub main is production (Vercel deploys every push to it, or under DR-166 T1 it is the only source of the owner-dispatched deploy; DR-138). Push your branch for a preview instead; publish to main only after the owner's explicit order in chat, then re-run prefixed with PANDACORP_OWNER_RELEASE_OK=1"
   done <<< "$gate_segments"
 fi
 
 # DR-166 T1 / INFRA-15: a project on manual production deploys ships by dispatching its deploy
-# workflow (`pnpm deploy:prod` → `gh workflow run deploy-production.yml`). That dispatch IS the
-# production release, so an agent runs it only on the owner's explicit order, re-run with the same
-# PANDACORP_OWNER_RELEASE_OK=1 prefix as a push to main (DR-004). The owner's own terminal is unaffected.
+# workflow (`pnpm deploy:prod` → `scripts/deploy/deploy-production.sh` → `gh workflow run
+# deploy-production.yml`). That dispatch IS the production release, so an agent runs it only on the
+# owner's explicit order, re-run with the same PANDACORP_OWNER_RELEASE_OK=1 prefix as a push to main
+# (DR-004). Like the Vercel rule above, only the COMMAND word of each segment counts (after VAR=val
+# prefixes and env/command/exec wrappers), never a word inside prose such as a commit message.
+# `--dry-run` anywhere in the segment stays allowed (it only prints the release). The owner's own
+# terminal is unaffected.
+_t1_block() { block "production deploy = human gate (DR-004, DR-166 T1): $1 dispatches the production deploy of origin/main. Get the owner's explicit order in chat, then re-run prefixed with PANDACORP_OWNER_RELEASE_OK=1 (--dry-run stays allowed)"; }
 if ! printf '%s' "$cmd" | grep -q 'PANDACORP_OWNER_RELEASE_OK=1'; then
-  echo "$cmd" | grep -Eq '(^|[[:space:];&|])gh[[:space:]]+workflow[[:space:]]+run[[:space:]]+[^;&|]*deploy-prod' \
-    && block "production deploy = human gate (DR-004, DR-166 T1): dispatching the deploy workflow ships origin/main to production. Get the owner's explicit order in chat, then re-run prefixed with PANDACORP_OWNER_RELEASE_OK=1"
-  echo "$cmd" | grep -Eq '(^|[[:space:];&|])(pnpm|npm|yarn|bun)([[:space:]]+run)?[[:space:]]+deploy:prod([[:space:]]|$)' \
-    && ! echo "$cmd" | grep -Eq 'deploy:prod[[:space:]]+--dry-run' \
-    && block "production deploy = human gate (DR-004, DR-166 T1): deploy:prod dispatches the production deploy of origin/main. Get the owner's explicit order in chat, then re-run prefixed with PANDACORP_OWNER_RELEASE_OK=1 (deploy:prod --dry-run stays allowed)"
+  while IFS= read -r seg; do
+    set -f; set -- $seg; set +f
+    while [ $# -gt 0 ]; do
+      case "$1" in *=*|env|command|exec|sudo|time|nohup) shift ;; *) break ;; esac
+    done
+    [ $# -gt 0 ] || continue
+    rest_lc=$(printf '%s ' "$@" | tr '[:upper:]' '[:lower:]' | tr -d "\"'")
+    case " $rest_lc " in *" --dry-run "*) continue ;; esac
+    word="$(_unquote "$1")"
+    case "$word" in
+      pnpm|npm|yarn|bun)
+        shift; [ "${1:-}" = "run" ] && shift
+        [ "$(_unquote "${1:-}")" = "deploy:prod" ] && _t1_block "deploy:prod" ;;
+      bash|sh|zsh)
+        shift
+        while [ $# -gt 0 ]; do case "$1" in -*) shift ;; *) break ;; esac; done
+        case "$(_unquote "${1:-}")" in *deploy-production.sh) _t1_block "deploy-production.sh" ;; esac ;;
+      *deploy-production.sh) _t1_block "deploy-production.sh" ;;
+      gh)
+        case "$rest_lc" in
+          "gh workflow run "*)
+            printf '%s' "${rest_lc#gh workflow run }" | grep -Eq '(^| )[^ ]*deploy[-_ ]?prod' \
+              && _t1_block "gh workflow run <deploy-production>" ;;
+          "gh api "*)
+            printf '%s' "$rest_lc" | grep -Eq 'actions/workflows/[^/ ]*deploy[^/ ]*/dispatches' \
+              && _t1_block "the deploy workflow dispatch API" ;;
+        esac ;;
+    esac
+  done <<< "$gate_segments"
 fi
 
 echo "$cmd" | grep -Eq '(^|[[:space:];&|])(flyctl|fly) deploy' && block "production deploy = human gate (DR-004): get the owner's explicit OK first"

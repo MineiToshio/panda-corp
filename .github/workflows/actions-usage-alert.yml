@@ -1,7 +1,8 @@
 name: Actions usage alert
 
-# DR-166 U7 (factory/standards/infra.md INFRA-14): ONE account-wide alert for the 2,000 GitHub
-# Actions minutes shared by every private repository of the owner's account. It lives here because
+# DR-166 U7 (factory/standards/infra.md INFRA-14): ONE account-wide alert for the included GitHub
+# Actions compute ($12/month on a free account, about 2,000 Linux minutes) shared by every private
+# repository of the owner's account, measured on the billing usage's gross dollar amount. It lives here because
 # this repository is public, so its own runs cost no included minutes. Daily: it keeps one
 # `actions-quota` issue open/updated at >= 60 % (WARN) and >= 85 % (CRIT) and closes it below 60 %.
 # Needs the owner-created secret GH_BILLING_TOKEN; without it the job prints a notice and succeeds.
@@ -9,7 +10,12 @@ name: Actions usage alert
 on:
   schedule:
     - cron: "41 7 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      included_usd:
+        description: Included Actions compute in USD (default 12, or the ACTIONS_INCLUDED_USD variable)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -36,5 +42,5 @@ jobs:
           GH_BILLING_TOKEN: ${{ secrets.GH_BILLING_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
           BILLING_USER: MineiToshio
-          INCLUDED_MINUTES: "2000"
+          INCLUDED_USD: ${{ inputs.included_usd || vars.ACTIONS_INCLUDED_USD || '12' }}
         run: node plugin/scripts/actions-usage-alert.mjs

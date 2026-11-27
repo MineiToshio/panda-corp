@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // check-ci-quota.mjs — ADVISORY free-quota review of a project's GitHub Actions workflows (DR-166,
-// factory/standards/infra.md INFRA-11/12). Private repositories share 2,000 Actions minutes a month
-// across the whole account, so a workflow that runs the full suite on every push to every branch
+// factory/standards/infra.md INFRA-11/12). Private repositories share one included Actions allowance
+// ($12/month, about 2,000 Linux minutes) across the whole account, so a workflow that runs the full suite on every push to every branch
 // starves every other project. /pandacorp:upgrade runs this instead of overwriting a project's
 // ci.yml (a workflow is project-owned once seeded): it prints suggestions, never edits, and always
 // exits 0 unless invoked wrongly (exit 2).
@@ -101,8 +101,15 @@ export function analyzeWorkflow(text, file = 'workflow') {
     else if (/\*\*|"\*"|'\*'/.test(branches ? branches[1] : push)) add('U2', 'push uses a wildcard branch filter; limit it to `branches: [main]`');
     if (!/paths-ignore:/.test(push) || !/\*\*\/\*\.md/.test(push)) add('U2', "push lacks `paths-ignore: ['**/*.md']` (docs-only pushes should skip CI)");
   }
-  if ((hasPush || hasPr) && !/^concurrency:/m.test(text)) add('U2', 'no top-level `concurrency` with `cancel-in-progress: true` for the same ref');
-  else if ((hasPush || hasPr) && !/cancel-in-progress:\s*true/.test(text)) add('U2', '`concurrency` does not cancel in-progress runs for the same ref');
+  const onDemand = Object.hasOwn(triggers, 'workflow_dispatch') || Object.hasOwn(triggers, 'schedule');
+  const cancel = text.match(/^\s*cancel-in-progress:\s*(.+)$/m);
+  if ((hasPush || hasPr) && !/^concurrency:/m.test(text)) add('U2', 'no top-level `concurrency` cancelling superseded runs of the same ref');
+  else if ((hasPush || hasPr) && !cancel) add('U2', '`concurrency` does not cancel in-progress runs for the same ref');
+  else if ((hasPush || hasPr) && onDemand && /^true\b/.test(cancel[1].trim())) {
+    // Old pattern: one group per ref with unconditional cancel lets a later push kill an on-demand
+    // full suite or the scheduled audit. Group by event and cancel only push/PR runs.
+    add('U2', "unconditional `cancel-in-progress: true` also cancels dispatched/scheduled runs; use group `${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}` and cancel only when the event is not workflow_dispatch or schedule");
+  }
 
   for (const job of parseJobs(text)) {
     if (job.timeout == null) add('U4', `job \`${job.name}\` has no \`timeout-minutes\``);
@@ -149,7 +156,7 @@ function main(argv) {
   }
   const report = adviseProject(project, templatePath);
   if (json) { console.log(JSON.stringify(report, null, 2)); return 0; }
-  const ciLine = { missing: 'ci.yml missing: seed it from the stack template', identical: 'ci.yml matches the stack template', customized: 'ci.yml is project-owned and differs from the template: not overwritten' }[report.ci];
+  const ciLine = { missing: 'missing CI: no ci.yml (suggestion: add the stack template shape as the project\'s own change; upgrade never seeds or commits it)', identical: 'ci.yml matches the stack template', customized: 'ci.yml is project-owned and differs from the template: not overwritten' }[report.ci];
   console.log(`check-ci-quota (advisory, DR-166): ${ciLine}`);
   if (!report.findings.length) console.log('  no free-quota findings');
   for (const f of report.findings) console.log(`  [${f.rule}] ${f.file}: ${f.message}`);

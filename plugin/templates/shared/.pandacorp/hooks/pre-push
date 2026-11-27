@@ -8,7 +8,8 @@
 # the same test as .pandacorp/merge-queue.sh) it requires PANDACORP_OWNER_RELEASE_OK=1 AND proof
 # for the stdin commit: queue ff evidence, or a matching main-checkout green stamp. An explicit
 # PANDACORP_OWNER_UNGATED_PUSH=1 bypasses only proof and must be durably logged first.
-# The default branch is production there (Vercel deploys every push). Other refs remain unchanged.
+# The default branch is production there: the host deploys every push, or, under DR-166 T1 (vercel.json
+# git.deploymentEnabled false), it is the only source of the owner-dispatched deploy. Other refs remain unchanged.
 #
 # Honest limits: PANDACORP_OWNER_RELEASE_OK is a FLAG, not a secret. This hook stops an unprompted push
 # by an agent; it does not stop a deliberate bypass (`git push --no-verify`, editing this file, setting

@@ -7,8 +7,8 @@ name: CI
 #   - push to main / pull requests: only the fast static layer (verify.sh --light) + secret scan;
 #   - the full unit suite and the browser gates: on demand (Actions > CI > Run workflow);
 #   - dependency audit: weekly + on demand.
-# Seeded by /pandacorp:architecture. Project-owned afterwards: /pandacorp:upgrade never overwrites
-# it, it only reports what differs from this shape (plugin/scripts/check-ci-quota.mjs).
+# Seeded by /pandacorp:architecture only. Project-owned afterwards: /pandacorp:upgrade never seeds,
+# overwrites or commits it; it only reports what differs from this shape (plugin/scripts/check-ci-quota.mjs).
 on:
   pull_request:
   push:
@@ -23,9 +23,11 @@ on:
 permissions:
   contents: read
 
+# Superseded push/PR runs are cancelled; an on-demand full suite or the weekly audit is never
+# cancelled by a later push (its own group per event, and no cancel for dispatch/schedule).
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' && github.event_name != 'schedule' }}
 
 jobs:
   checks:

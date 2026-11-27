@@ -1,16 +1,20 @@
 #!/usr/bin/env node
-// actions-usage-alert.mjs — account-wide GitHub Actions minutes alert (DR-166 U7, factory/standards/
-// infra.md INFRA-14). Runs from the PUBLIC factory repo (its own minutes are free) on a daily cron:
-// reads the owner account's billing usage for the current month, sums the Actions minutes billed to
-// PRIVATE repositories (the 2,000 included minutes are shared by all of them), and keeps ONE issue
-// labeled `actions-quota` in sync: opened/updated at >= 60 % (WARN) and >= 85 % (CRIT), closed with
-// a comment once usage is back below 60 % (in practice: after the monthly reset).
+// actions-usage-alert.mjs — account-wide GitHub Actions quota alert (DR-166 U7, factory/standards/
+// infra.md INFRA-14). Runs from the PUBLIC factory repo (its own minutes are free) on a daily cron.
+// It reads the owner account's billing usage for the current month (an enhanced-billing-platform
+// endpoint) and sums the GROSS dollar amount of Actions compute billed to PRIVATE repositories. A free
+// account's included Actions compute is a dollar allowance ($12/month by default; Linux $0.006/min,
+// Windows $0.010/min, macOS $0.062/min), so grossAmount already weighs each runner type. It keeps ONE
+// issue labeled `actions-quota` in sync: opened/updated at >= 60 % (WARN) and >= 85 % (CRIT), closed
+// with a comment once usage is back below 60 % (in practice: after the monthly reset). Minutes are
+// shown for reading only; they never drive the percentage.
 //
 // Environment:
-//   GH_BILLING_TOKEN  owner-created token able to read the account's billing usage (fine-grained:
-//                     account permission "Plan: read"; classic: `user` scope). Missing = notice, exit 0.
+//   GH_BILLING_TOKEN  owner-created token able to read the account's billing usage. A classic token
+//                     with the `user` scope is the known-good choice; a fine-grained "Plan: read"
+//                     token is unverified. Missing = notice, exit 0.
 //   GITHUB_TOKEN      the workflow token (issues: write) for the issue in GITHUB_REPOSITORY.
-//   BILLING_USER      account login (default MineiToshio); INCLUDED_MINUTES (default 2000).
+//   BILLING_USER      account login (default MineiToshio); INCLUDED_USD (default 12).
 //   DRY_RUN=1         print the report and the planned issue action, touch nothing.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,15 +22,7 @@ import { fileURLToPath } from 'node:url';
 export const LABEL = 'actions-quota';
 export const WARN_PCT = 60;
 export const CRIT_PCT = 85;
-// Included minutes are consumed at the runner multiplier (Linux 1, Windows 2, macOS 10).
-export const MULTIPLIERS = { linux: 1, windows: 2, macos: 10 };
-
-function multiplierFor(sku) {
-  const s = String(sku || '').toLowerCase();
-  if (s.includes('macos')) return MULTIPLIERS.macos;
-  if (s.includes('windows')) return MULTIPLIERS.windows;
-  return MULTIPLIERS.linux;
-}
+export const DEFAULT_INCLUDED_USD = 12;
 
 function repoKey(name) {
   if (!name) return null;
@@ -34,32 +30,39 @@ function repoKey(name) {
   return s.includes('/') ? s.slice(s.lastIndexOf('/') + 1) : s;
 }
 
-// Pure: usageItems from GET /users/{u}/settings/billing/usage → minutes per private repository.
-// Defensive: unknown shapes are skipped and counted, never thrown; an item without a repository is
-// counted as private ("(unattributed)") so the alert errs toward warning, not silence.
+// Pure: usageItems from GET /users/{u}/settings/billing/usage → gross dollars (plus minutes, for
+// display) per private repository. Defensive: unreadable items are skipped and counted, never
+// thrown; an item without a repository counts as private ("(unattributed)"), so the alert errs
+// toward warning, not silence.
 export function summarizeActionsUsage(response, { publicRepos = new Set(), year, month } = {}) {
   const items = Array.isArray(response?.usageItems) ? response.usageItems : null;
   if (!items) throw new Error('billing usage response has no usageItems array');
   const prefix = year && month ? `${year}-${String(month).padStart(2, '0')}` : null;
   const byRepo = new Map();
-  let total = 0;
+  let totalUsd = 0;
+  let totalMinutes = 0;
   let skipped = 0;
   for (const item of items) {
     if (!item || typeof item !== 'object') { skipped += 1; continue; }
     if (String(item.product || '').toLowerCase() !== 'actions') continue;
-    if (!/minute/i.test(String(item.unitType || ''))) continue;
+    if (!/minute/i.test(String(item.unitType || ''))) continue; // compute only; storage is a separate quota
     if (prefix && typeof item.date === 'string' && !item.date.startsWith(prefix)) continue;
-    const quantity = Number(item.quantity);
-    if (!Number.isFinite(quantity) || quantity < 0) { skipped += 1; continue; }
+    const gross = Number(item.grossAmount);
+    if (!Number.isFinite(gross) || gross < 0) { skipped += 1; continue; }
     const key = repoKey(item.repositoryName);
     if (key && publicRepos.has(key)) continue;
-    const minutes = quantity * multiplierFor(item.sku);
     const label = key || '(unattributed)';
-    byRepo.set(label, (byRepo.get(label) || 0) + minutes);
-    total += minutes;
+    const row = byRepo.get(label) || { usd: 0, minutes: 0 };
+    const minutes = Number(item.quantity);
+    row.usd += gross;
+    if (Number.isFinite(minutes) && minutes >= 0) { row.minutes += minutes; totalMinutes += minutes; }
+    byRepo.set(label, row);
+    totalUsd += gross;
   }
-  const repos = [...byRepo.entries()].map(([repo, minutes]) => ({ repo, minutes })).sort((a, b) => b.minutes - a.minutes || a.repo.localeCompare(b.repo));
-  return { totalMinutes: total, repos, skipped };
+  const repos = [...byRepo.entries()]
+    .map(([repo, r]) => ({ repo, usd: r.usd, minutes: r.minutes }))
+    .sort((a, b) => b.usd - a.usd || a.repo.localeCompare(b.repo));
+  return { totalUsd, totalMinutes, repos, skipped };
 }
 
 export function classify(pct) {
@@ -68,21 +71,29 @@ export function classify(pct) {
   return 'OK';
 }
 
-export function buildReport(summary, { included = 2000, now = new Date() } = {}) {
-  const pct = included > 0 ? (summary.totalMinutes / included) * 100 : 100;
+// The level an open issue was last written at, read from its title ("Actions quota CRIT: …").
+export function levelOfTitle(title) {
+  const m = /\b(OK|WARN|CRIT)\b/.exec(String(title || ''));
+  return m ? m[1] : null;
+}
+
+const money = (n) => `$${(Math.round(n * 100) / 100).toFixed(2)}`;
+const round1 = (n) => Math.round(n * 10) / 10;
+
+export function buildReport(summary, { includedUsd = DEFAULT_INCLUDED_USD, now = new Date() } = {}) {
+  const pct = includedUsd > 0 ? (summary.totalUsd / includedUsd) * 100 : 100;
   const level = classify(pct);
   const month = now.toISOString().slice(0, 7);
-  const round = (n) => Math.round(n * 10) / 10;
-  const title = `Actions minutes ${level}: ${Math.round(summary.totalMinutes)}/${included} (${round(pct)}%) in ${month}`;
-  const rows = summary.repos.map((r) => `| ${r.repo} | ${Math.round(r.minutes)} | ${round((r.minutes / included) * 100)}% |`);
+  const title = `Actions quota ${level}: ${money(summary.totalUsd)}/${money(includedUsd)} (${round1(pct)}%) in ${month}`;
+  const rows = summary.repos.map((r) => `| ${r.repo} | ${money(r.usd)} | ${round1((r.usd / includedUsd) * 100)}% | ${Math.round(r.minutes)} |`);
   const body = [
-    `**${level}** — private repositories have used **${Math.round(summary.totalMinutes)} of ${included}** included GitHub Actions minutes in ${month} (${round(pct)}%).`,
+    `**${level}**: private repositories have used **${money(summary.totalUsd)} of ${money(includedUsd)}** of included GitHub Actions compute in ${month} (${round1(pct)}%, ${Math.round(summary.totalMinutes)} runner minutes).`,
     '',
-    `Thresholds: WARN at ${WARN_PCT}%, CRIT at ${CRIT_PCT}%. Paid overage is blocked ($0 budget): at 100% every workflow in every private repo stops until the monthly reset.`,
+    `Thresholds: WARN at ${WARN_PCT}%, CRIT at ${CRIT_PCT}%, measured on the gross amount of private-repo Actions compute (Linux $0.006/min, Windows $0.010/min, macOS $0.062/min). Paid overage is blocked ($0 budget): at 100% every workflow in every private repo stops until the monthly reset.`,
     '',
-    '| Repository | Minutes | Share of included |',
-    '|---|---|---|',
-    ...(rows.length ? rows : ['| (none) | 0 | 0% |']),
+    '| Repository | Gross | Share of included | Minutes |',
+    '|---|---|---|---|',
+    ...(rows.length ? rows : ['| (none) | $0.00 | 0% | 0 |']),
     '',
     'Runbook: factory/standards/infra.md INFRA-11..16 (DR-166). Pause optional dispatches, prefer local gates, check crons; at CRIT hold non-urgent workflow runs.',
     summary.skipped ? `\n_${summary.skipped} usage item(s) had an unreadable shape and were skipped._` : '',
@@ -91,10 +102,12 @@ export function buildReport(summary, { included = 2000, now = new Date() } = {})
   return { pct, level, title, body };
 }
 
-// Pure: what to do with the single labeled issue.
+// Pure: what to do with the single labeled issue. An edit sends no notification, so a level change
+// on an open issue (WARN <-> CRIT) also gets a comment; closing always comments.
 export function planIssueAction(level, openIssue) {
-  if (level === 'OK') return openIssue ? 'close' : 'none';
-  return openIssue ? 'update' : 'create';
+  if (level === 'OK') return { action: openIssue ? 'close' : 'none', comment: Boolean(openIssue) };
+  if (!openIssue) return { action: 'create', comment: false };
+  return { action: 'update', comment: levelOfTitle(openIssue.title) !== level };
 }
 
 async function gh(token, method, url, body) {
@@ -127,19 +140,19 @@ async function main() {
     return 0;
   }
   const user = process.env.BILLING_USER || 'MineiToshio';
-  const included = Number(process.env.INCLUDED_MINUTES || 2000);
+  const includedUsd = Number(process.env.INCLUDED_USD || DEFAULT_INCLUDED_USD);
   const now = new Date();
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth() + 1;
   const usage = await gh(billingToken, 'GET', `/users/${encodeURIComponent(user)}/settings/billing/usage?year=${year}&month=${month}`);
   if (!usage.ok) {
-    console.log(`::error title=Billing usage unreadable::GET /users/${user}/settings/billing/usage returned HTTP ${usage.status}. Check that GH_BILLING_TOKEN is valid and can read billing (fine-grained "Plan: read" or classic \`user\` scope).`);
+    console.log(`::error title=Billing usage unreadable::GET /users/${user}/settings/billing/usage returned HTTP ${usage.status}. Check that GH_BILLING_TOKEN is valid and can read billing (a classic token with the \`user\` scope is known to work; a fine-grained "Plan: read" token is unverified) and that the account is on the enhanced billing platform.`);
     return 1;
   }
   const summary = summarizeActionsUsage(usage.data, { publicRepos: await publicRepoSet(billingToken, user), year, month });
-  const report = buildReport(summary, { included, now });
+  const report = buildReport(summary, { includedUsd, now });
   console.log(report.title);
-  for (const r of summary.repos) console.log(`  ${r.repo}: ${Math.round(r.minutes)} min`);
+  for (const r of summary.repos) console.log(`  ${r.repo}: $${r.usd.toFixed(2)} (${Math.round(r.minutes)} min)`);
 
   const repo = process.env.GITHUB_REPOSITORY;
   const token = process.env.GITHUB_TOKEN;
@@ -150,7 +163,7 @@ async function main() {
   const open = await gh(token, 'GET', `/repos/${repo}/issues?state=open&labels=${LABEL}&per_page=10`);
   if (!open.ok || !Array.isArray(open.data)) throw new Error(`listing ${LABEL} issues failed (HTTP ${open.status})`);
   const issue = open.data.find((i) => !i.pull_request) || null;
-  const action = planIssueAction(report.level, issue);
+  const { action, comment } = planIssueAction(report.level, issue);
   if (action === 'create') {
     const label = await gh(token, 'POST', `/repos/${repo}/labels`, { name: LABEL, color: 'd93f0b', description: 'Account-wide GitHub Actions minutes alert (DR-166)' });
     if (!label.ok && label.status !== 422) throw new Error(`creating label failed (HTTP ${label.status})`);
@@ -160,6 +173,11 @@ async function main() {
   } else if (action === 'update') {
     const updated = await gh(token, 'PATCH', `/repos/${repo}/issues/${issue.number}`, { title: report.title, body: report.body });
     if (!updated.ok) throw new Error(`updating issue failed (HTTP ${updated.status})`);
+    // An edit sends no notification: a WARN <-> CRIT change also gets a comment.
+    if (comment) {
+      const note = await gh(token, 'POST', `/repos/${repo}/issues/${issue.number}/comments`, { body: `Level changed to ${report.level}: ${report.title}.` });
+      if (!note.ok) throw new Error(`commenting on issue failed (HTTP ${note.status})`);
+    }
     console.log(`updated issue #${issue.number}`);
   } else if (action === 'close') {
     await gh(token, 'POST', `/repos/${repo}/issues/${issue.number}/comments`, { body: `Back to OK: ${report.title}.` });

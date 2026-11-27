@@ -21,8 +21,10 @@
 #      owner's explicit order; re-run as `PANDACORP_OWNER_RELEASE_OK=1 bash .pandacorp/merge-queue.sh`
 #
 # LAUNCHED projects (status.yaml `phase: release`, deploy_target not `internal`; DR-138/INFRA-8): GitHub
-# main is production and Vercel deploys every push to it, so landing = releasing. Without the owner's
-# order the script stops at exit 21 with the branch ready; with it, it ff-merges AND pushes main.
+# main is production: by default the host deploys every push to it, so landing = releasing; under the
+# DR-166 T1 variant (vercel.json git.deploymentEnabled false) the push does not deploy, and production
+# is the owner-dispatched deploy of origin/main. Either way, without the owner's order the script stops
+# at exit 21 with the branch ready; with it, it ff-merges AND pushes main.
 #
 # It NEVER force-merges and NEVER touches another session's WIP (DR-093). A non-auto-resolvable
 # conflict or a red gate is HANDED BACK, never papered over.
@@ -892,7 +894,11 @@ QUEUE_ORDER_PRESENT=0
 queue_event order_check launched json "$LAUNCHED" order_present json "$QUEUE_ORDER_PRESENT"
 if [ "$LAUNCHED" = 1 ] && [ "${PANDACORP_OWNER_RELEASE_OK:-}" != "1" ]; then
   echo "merge-queue: $BRANCH is rebased on $DEFAULT_BRANCH and its gate is green, but this project is LAUNCHED:" >&2
-  echo "merge-queue: $DEFAULT_BRANCH is production (Vercel deploys every push). Ask the owner; on their explicit order run:" >&2
+  if [ -f "$QUEUE_PROJECT/vercel.json" ] && tr -d ' \t\r\n' < "$QUEUE_PROJECT/vercel.json" | grep -q '"deploymentEnabled":false'; then
+    echo "merge-queue: $DEFAULT_BRANCH is production (Vercel git deploys are off: the push does not deploy; production is the owner-dispatched deploy of origin/main, DR-166 T1). Ask the owner; on their explicit order run:" >&2
+  else
+    echo "merge-queue: $DEFAULT_BRANCH is production (Vercel deploys every push). Ask the owner; on their explicit order run:" >&2
+  fi
   echo "merge-queue:   PANDACORP_OWNER_RELEASE_OK=1 bash .pandacorp/merge-queue.sh" >&2
   echo "merge-queue: for a preview first: git push -u origin $BRANCH (Vercel builds a preview URL)" >&2
   exit 21
@@ -952,7 +958,8 @@ fi
 
 echo "merge-queue: merged $BRANCH → $DEFAULT_BRANCH"
 
-# Launched + owner's order: publishing main IS the production release (Vercel's GitHub integration).
+# Launched + owner's order: publishing main is the production release (Vercel's Git integration), or,
+# under DR-166 T1 (git deploys off), the release candidate the owner then deploys with deploy:prod.
 if [ "$LAUNCHED" = 1 ]; then
   QUEUE_PUSH_SHA="$QUEUE_GATED_SHA"
   bounded_git() {
