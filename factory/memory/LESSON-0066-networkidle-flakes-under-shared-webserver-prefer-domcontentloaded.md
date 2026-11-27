@@ -9,7 +9,7 @@ source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-03 — e2e/home-fide
 provenance: agent-inferred
 created: 2026-07-04
 status: active
-promotion: proposed
+promotion: proposed   # 2026-11-27 (librarian review) — target: plugin/templates/rules/quality-and-testing.md (e2e-hygiene section): add "never `waitUntil: 'networkidle'` in a Playwright spec; use `domcontentloaded` + an explicit visibility/data assertion", cross-referencing DR-071's SSE/STACK.md-specific instance. Corroborated across 2 distinct projects (mission-control, funko-tracker) via two different symptoms (merge-queue contention flake vs. a deterministic hang against a live SSE connection) with zero contradicting evidence — cheap, standing insurance against rediscovering this per project.
 confidence: medium
 times_applied: 3
 applied_in: [mission-control, funko-tracker, panda-corp]

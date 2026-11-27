@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0570, LESSON-0552]
+links: [LESSON-0570, LESSON-0552, LESSON-0730]
 ---
 
 **Situation:** a batch pipeline removes backgrounds from per-item catalog photography (some items boxed,

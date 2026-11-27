@@ -9,7 +9,7 @@ source: "synthesis over 4 evidence-anchored candidates, personal-page-v2 + missi
 provenance: agent-inferred
 created: 2026-08-03
 status: active
-promotion: proposed
+promotion: proposed   # 2026-11-27 (librarian review) — target: plugin/templates/rules/quality-and-testing.md (new "Playwright flakiness triage" checklist): before treating an intermittent e2e red as a real regression, check webServer port/lock collision, `networkidle` vs `domcontentloaded`, cold-boot first-run, hydration race, `:focus-visible` modality, env-file override, timeout-budget-too-tight and off-screen `boundingBox()` coordinates, and reproduce against untouched upstream before blaming the diff. Corroborated by 11 distinct sub-mechanisms across 3 projects (personal-page-v2, mission-control, funko-tracker/panda-corp) with zero contradicting evidence — the single highest-leverage e2e-debugging checklist synthesized in the store so far.
 confidence: medium
 times_applied: 3
 applied_in: [mission-control, funko-tracker, panda-corp]

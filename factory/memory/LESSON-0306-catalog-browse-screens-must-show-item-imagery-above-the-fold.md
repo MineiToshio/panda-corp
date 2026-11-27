@@ -9,7 +9,7 @@ source: "funko-tracker .pandacorp/comms/iteration.md ronda 3, 2026-10 (owner-sta
 provenance: owner-stated
 created: 2026-10-13
 status: active
-promotion: proposed
+promotion: proposed   # 2026-11-27 (librarian review) — target: plugin/skills/design/references/surface-playbooks.md (catalog/browse-screen entry) or factory/standards/design.md. Corroborated across 2 distinct projects (pandasaga, funko-tracker) with owner-stated severity ("fatal") — a catalog screen that shows zero items above the fold in its default, unfiltered state is cheap to catch as a standing design-review checklist item before the DR-129 fidelity freeze.
 confidence: high
 times_applied: 3
 applied_in: [pandasaga, funko-tracker, panda-corp]

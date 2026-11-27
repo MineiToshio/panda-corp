@@ -8,7 +8,14 @@ trigger: use this when deciding how many/which reviewer lenses to spend on a gat
 source: "panda-corp — implement-overhaul 2026-07-07 (DR-118 concurrent FRD gates), factory/memory/_inbox.md"
 provenance: agent-inferred
 created: 2026-07-09
-status: candidate
+status: deprecated   # 2026-11-27 (librarian review) — reconciled: contradicted by the current engine's own
+  # explicit retirement. factory/standards/build-engine.md BUILD-10/BUILD-11 states "Rules R4-R10 of the
+  # design drafts are retired (F9): size and reopen do not escalate models" (line ~548) — the current
+  # engine deliberately does NOT condition reviewer strength/lens allocation on `reopen_count`, which is
+  # exactly what this lesson recommends. Review strength now follows BUILD-10's deterministic
+  # risk-floor/complexity model (DR-162), not a prior-failure signal. Never corroborated past its single
+  # origin project (times_applied: 1, panda-corp only) and never activated, so this closes a candidate,
+  # not a reversal of applied guidance.
 promotion: none
 confidence: medium
 times_applied: 1

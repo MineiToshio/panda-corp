@@ -8,7 +8,19 @@ trigger: use this when designing or debugging a dependency-wait/scheduling rule 
 source: "panda-corp build engine — funko-tracker run_20261018T033601Z_80858 (fast lane, lanes K=2, plugin 9.131.0); BL-0251/DR-132: build-mech-lanes.mjs planChains, pandacorp-build.src.js fastIdle/fastDeadlockCheck"
 provenance: agent-inferred
 created: 2026-10-18
-status: candidate
+status: deprecated   # 2026-11-27 (librarian review) — mechanism retired: this lesson's referent is the
+  # retired "fast lane" scheduler (`pandacorp-build.src.js`'s `fastIdle`/`fastDeadlockCheck`,
+  # `build-mech-lanes.mjs`'s `planChains`) — confirmed absent from the current `plugin/scripts/` tree
+  # this pass (both files only survive at the `archive/engine-dynamic-workflows-v9.157.0` recovery tag,
+  # DR-154). The Day 1 build-engine rewrite (plugin 10.0.0, DR-150) replaced it with `planner.mjs`
+  # (BUILD-9), whose dependency wait is defined and enforced at the SAME grain throughout (a WO is ready
+  # only once every `dependsOn` WO is integrated on `lane/<run_id>/integration` — no separate
+  # FRD-level/floor-FRD projection of that graph), so the specific coarse-vs-fine-grain projection bug
+  # this lesson describes has no referent in the current scheduler. The underlying general principle
+  # ("a coarser projection of an acyclic DAG is not guaranteed acyclic; a deferring scheduler needs an
+  # explicit deadlock/stop-reason, never a silent null return") may still be worth restating if a future
+  # scheduling redesign introduces a new multi-grain projection — open a fresh candidate anchored to the
+  # current engine rather than reviving this one.
 promotion: none
 confidence: medium
 times_applied: 0

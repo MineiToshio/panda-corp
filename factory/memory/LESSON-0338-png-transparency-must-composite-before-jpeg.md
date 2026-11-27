@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0730]
 ---
 
 **Situation:** AI-generated logo PNGs came back with a transparent background (by design, for flexible

@@ -8,7 +8,16 @@ trigger: use this when a generated-code artifact is near its size budget and a n
 source: "mission-control/panda-corp build 2026-10-29 (agent-inferred): the build engine artifact (`pandacorp-build.js`) sat 77 bytes under its 480 KB budget (per the already-open BL-0255); the drift-finder's 5.6 KB inlined method body was a verbatim duplicate of `plugin/agents/drift-finder.md` and was converted to a Read pointer (the agent reads the authored file at runtime instead of the engine carrying a second copy), freeing enough headroom for the DR-142 Codex-worker feature to fit."
 provenance: agent-inferred
 created: 2026-10-29
-status: candidate
+status: deprecated   # 2026-11-27 (librarian review) — mechanism retired: this lesson's referent is the
+  # retired generated single-file build-engine artifact (`pandacorp-build.js`) and its own byte-size-budget
+  # test — confirmed this pass that no `pandacorp-build.js` file and no byte/size-budget test exist
+  # anywhere in the current `plugin/scripts/`; the Day 1 build-engine rewrite (plugin 10.0.0, DR-150,
+  # DR-154) replaced it with plain, un-generated deterministic Node modules under
+  # `plugin/runtime/build/` with no such budget constraint. The underlying single-source-of-truth
+  # discipline (DR-115 — "an inlined duplicate of an authored file is both a drift risk and a cost")
+  # still holds in general, but the specific trigger condition ("a generated engine/workflow artifact
+  # near its byte budget") has no current referent; never corroborated past its single origin (low
+  # confidence, times_applied: 0) and never activated.
 promotion: none
 confidence: low
 times_applied: 0

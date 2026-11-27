@@ -17,7 +17,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0621]
+links: [LESSON-0621, LESSON-0730]
 ---
 
 **Situation:** individual figures were cropped out of a wider photo of a multi-item display/diorama to

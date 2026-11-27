@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0338]
+links: [LESSON-0338, LESSON-0730]
 ---
 
 **Situation:** a background-color detector sampled the median RGB of a photo's border pixels to pick a
