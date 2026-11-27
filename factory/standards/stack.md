@@ -19,7 +19,7 @@
 - **Polar** (payments, Merchant of Record — works from Peru/global) when the version charges
 - **Vitest** (unit/integration) + **Playwright** (e2e)
 - **Biome** — the single standard for **both formatting and linting** (replaces Prettier *and* ESLint); Tailwind class sorting via Biome `useSortedClasses`. **Do not add Prettier or ESLint** except as a documented escape hatch for a rule Biome lacks (Testing-Library-specific lint, full `eslint-plugin-next` parity) — and never re-add Prettier.
-- Package manager: **pnpm** (shared content-addressable store, DR-096; the repo-wide standard). Deploy: Vercel (web) / container on Railway or Fly.io (services), always through the host's GitHub integration with `main` as the production branch, set up at release (DR-138)
+- Package manager: **pnpm** (shared content-addressable store, DR-096; the repo-wide standard). Deploy: Vercel (web) / container on Railway or Fly.io (services), always from GitHub with `main` as the production branch, set up at release: the host's Git integration by default, or the owner-dispatched deploy workflow once DR-166 T1's threshold fires (DR-138, `infra.md` INFRA-15)
 
 > Account model, secrets (SOPS+age) and provisioning of these external services: `external-services.md`. The service stack validated in production is PandaTrack's.
 

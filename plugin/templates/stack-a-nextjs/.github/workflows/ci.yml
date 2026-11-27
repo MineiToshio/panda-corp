@@ -1,0 +1,92 @@
+name: CI
+
+# Pandacorp Stack A CI, free-quota shape (DR-166, factory/standards/infra.md INFRA-11).
+# Private repositories share 2,000 GitHub Actions minutes per month across the whole account, and
+# every job is billed rounded up to the whole minute. The real quality gate is LOCAL
+# (.pandacorp/verify.sh through .pandacorp/merge-queue.sh), so CI is a cheap backstop:
+#   - push to main / pull requests: only the fast static layer (verify.sh --light) + secret scan;
+#   - the full unit suite and the browser gates: on demand (Actions > CI > Run workflow);
+#   - dependency audit: weekly + on demand.
+# Seeded by /pandacorp:architecture. Project-owned afterwards: /pandacorp:upgrade never overwrites
+# it, it only reports what differs from this shape (plugin/scripts/check-ci-quota.mjs).
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths-ignore:
+      # Markdown only: JSON under docs/ (tokens, data model) is read by code and tests.
+      - "**/*.md"
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Fast static gates (structure, docs, biome, tsc, knip, madge)
+        run: bash .pandacorp/verify.sh --light --report-all
+
+  secrets:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  full-suite:
+    # On demand only: the local merge queue already ran this exact gate before landing.
+    # When DB-backed tests land, add a postgres service here (architecture step 8).
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium for the browser gates
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Full gate (static + unit + browser)
+        run: bash .pandacorp/verify.sh --report-all
+
+  audit:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level=high

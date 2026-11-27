@@ -56,6 +56,11 @@ within a process to the protected destination; display only names, counts and re
   `pnpm db:test:up`, and that tests leave zero residue. Never in `.env.production`. Document port, database
   names (`<slug>_template`, `<slug>_test_*`) and the start/check commands in `architecture.md`'s
   environment/test section.
+- **Local development database (DR-166 U6, INFRA-13):** the default `DATABASE_URL` in `.env.local` points
+  at a development database on the same native loopback instance (not the test template), so `pnpm dev`,
+  migrations and seeds spend no Neon transfer. The Neon dev branch's URLs live under separately named
+  variables in the local-only block (own one-line comment each) and are read only by explicitly named
+  scripts (`dev:neon`, `db:migrate:neon-dev`, …); a default script never falls back to them.
 
 ## 3. Deliver protected files to explicit targets
 

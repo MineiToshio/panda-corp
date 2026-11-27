@@ -15,7 +15,7 @@
 - Don't add skeletons/loading props for UI the server already delivers in the same navigation (implies a client loading phase that isn't there).
 
 ## How it is verified
-- **CI = lab proxy** (not the real p75, impossible in CI): Lighthouse CI (perf score + budget) + `@next/bundle-analyzer`; TBT as a proxy for INP. Gate **warn-on-PR / block-on-main** (like mutation testing, DR-016 — lab variance must not block every PR).
+- **CI = lab proxy** (not the real p75, impossible in CI): Lighthouse CI (perf score + budget) + `@next/bundle-analyzer`; TBT as a proxy for INP. Gate: **local** (the release/close-out run) or a CI job on `workflow_dispatch`, never on every push/PR (DR-166 INFRA-11: a build + Lighthouse run spends shared Actions minutes); lab variance must not block every change (like mutation testing, DR-016).
 - **The real p75 is measured in the field** with `useReportWebVitals` → PostHog (already in the stack).
 
 ## Why

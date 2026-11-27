@@ -31,6 +31,6 @@ source: Pandacorp standard — web-security
 - Install from the committed lockfile with immutable installs (`pnpm install --frozen-lockfile`); **pin exact versions** (no `^`/`~`).
 - **Disable install lifecycle scripts by default** (`ignore-scripts=true` / pnpm `enable-pre-post-scripts=false`); allow-list only trusted packages.
 - **Dependency cooldown**: don't install/auto-bump a version published < ~7 days ago (`min-release-age` / Renovate `minimumReleaseAge`).
-- CI dependency audit on every PR + scheduled, failing on high/critical; a bot (Dependabot/Renovate) keeps deps current.
+- CI dependency audit on a weekly schedule + on demand (`workflow_dispatch`), never per push (DR-166 U3), failing on high/critical; a bot (Dependabot/Renovate) keeps deps current.
 - Secret scanning in CI **and** pre-commit (`gitleaks`); enable platform push protection.
 - Pin third-party GitHub Actions to a full commit SHA; default `GITHUB_TOKEN` to `contents: read`, elevate per-job.

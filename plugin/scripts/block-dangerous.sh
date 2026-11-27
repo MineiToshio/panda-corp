@@ -683,7 +683,7 @@ while IFS= read -r seg; do
     case "$t" in -v|--version|-h|--help) sub="info"; break ;; -*) ;; *) sub="$t"; break ;; esac
   done
   case "$sub" in
-    ""|deploy|redeploy) block "manual Vercel deploy is forbidden (DR-138): deploys run only through the GitHub integration — push to a non-main branch for a preview; production is a merge/push to main, and only on the owner's explicit order once launched" ;;
+    ""|deploy|redeploy) block "manual Vercel deploy is forbidden (DR-138): deploys run only from GitHub — the Git integration (push to a non-main branch for a preview; production is a merge/push to main) or, under DR-166 T1, the owner-dispatched deploy workflow; production only on the owner's explicit order once launched" ;;
   esac
 done <<< "$gate_segments"
 
@@ -724,6 +724,18 @@ if [ -n "$launched_status" ] \
     fi
     [ "$to_main" = 1 ] && block "this project is LAUNCHED: GitHub main is production and Vercel deploys every push to it (DR-138). Push your branch for a preview instead; publish to main only after the owner's explicit order in chat, then re-run prefixed with PANDACORP_OWNER_RELEASE_OK=1"
   done <<< "$gate_segments"
+fi
+
+# DR-166 T1 / INFRA-15: a project on manual production deploys ships by dispatching its deploy
+# workflow (`pnpm deploy:prod` → `gh workflow run deploy-production.yml`). That dispatch IS the
+# production release, so an agent runs it only on the owner's explicit order, re-run with the same
+# PANDACORP_OWNER_RELEASE_OK=1 prefix as a push to main (DR-004). The owner's own terminal is unaffected.
+if ! printf '%s' "$cmd" | grep -q 'PANDACORP_OWNER_RELEASE_OK=1'; then
+  echo "$cmd" | grep -Eq '(^|[[:space:];&|])gh[[:space:]]+workflow[[:space:]]+run[[:space:]]+[^;&|]*deploy-prod' \
+    && block "production deploy = human gate (DR-004, DR-166 T1): dispatching the deploy workflow ships origin/main to production. Get the owner's explicit order in chat, then re-run prefixed with PANDACORP_OWNER_RELEASE_OK=1"
+  echo "$cmd" | grep -Eq '(^|[[:space:];&|])(pnpm|npm|yarn|bun)([[:space:]]+run)?[[:space:]]+deploy:prod([[:space:]]|$)' \
+    && ! echo "$cmd" | grep -Eq 'deploy:prod[[:space:]]+--dry-run' \
+    && block "production deploy = human gate (DR-004, DR-166 T1): deploy:prod dispatches the production deploy of origin/main. Get the owner's explicit order in chat, then re-run prefixed with PANDACORP_OWNER_RELEASE_OK=1 (deploy:prod --dry-run stays allowed)"
 fi
 
 echo "$cmd" | grep -Eq '(^|[[:space:];&|])(flyctl|fly) deploy' && block "production deploy = human gate (DR-004): get the owner's explicit OK first"

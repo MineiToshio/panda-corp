@@ -2,18 +2,18 @@
 id: LESSON-0728
 type: pattern
 domain: infra
-tags: [neon, egress, quota, cost-control, caching, public-endpoints, agent-inferred]
+tags: [neon, egress, quota, cost-control, caching, public-endpoints, free-quota, owner-stated]
 context: a project on a managed free/metered-tier database is approaching its egress/compute ceiling, and part of the drain is production read traffic on public, high-traffic, warm-cacheable endpoints (catalog browse, search) hitting the DB on every request
 trigger: use this when a shared-quota cloud DB resource (egress, compute-hours, read count) is near its ceiling and some of the draw comes from production reads on public pages that don't need per-request freshness
-source: "funko-tracker commit 23e6a703 (2026-11-25), decision-log entry 'Reuse the public browse revision on runtime visits': /explore and franchise/native search now read a warm in-process/shared cache keyed to the current public-catalog revision instead of hitting Postgres on every anonymous/signed-in visit, dropping those paths to 0 DB reads with a warm cache; only index-miss/cold paths and revision-changed continuations fall back to SQL, and the fallback validates only the requested IDs rather than re-querying everything. Landed the same week as LESSON-0727's dev-default + egress-alert fixes, as the production-read-side mitigation for the same Neon Free egress pressure (owner at ~80% of the 5GB/month allowance from dev alone, per docs/decision-log.md 2026-11-23/24) — but unlike LESSON-0727, the decision-log entry does not attribute this specific caching architecture to an explicit owner statement, so provenance is agent-inferred, not owner-stated."
-provenance: agent-inferred
+source: "funko-tracker commit 23e6a703 (2026-11-25), decision-log entry 'Reuse the public browse revision on runtime visits': /explore and franchise/native search now read a warm in-process/shared cache keyed to the current public-catalog revision instead of hitting Postgres on every anonymous/signed-in visit, dropping those paths to 0 DB reads with a warm cache; only index-miss/cold paths and revision-changed continuations fall back to SQL, and the fallback validates only the requested IDs rather than re-querying everything. Landed the same week as LESSON-0727's dev-default + egress-alert fixes, as the production-read-side mitigation for the same Neon Free egress pressure (owner at ~80% of the 5GB/month allowance from dev alone, per docs/decision-log.md 2026-11-23/24) — but unlike LESSON-0727, the decision-log entry does not attribute this specific caching architecture to an explicit owner statement, so provenance was first recorded as agent-inferred. On 2026-11-26 the owner approved the free-quota policy DR-166, whose T3 rule names this pattern (shared framework cache + tag revalidation instead of a DB query per request, applied when egress profiling shows a hot route) and keeps it as a documented pattern, not a standard. Provenance is therefore owner-stated, and the lesson stays a candidate until a second project applies it."
+provenance: owner-stated
 created: 2026-11-26
 status: candidate
 promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0727, DR-140]
+links: [LESSON-0727, DR-140, DR-166]
 ---
 
 **Situation:** a project is pushing against a shared-quota managed DB's metered ceiling (egress, read
@@ -40,3 +40,5 @@ validating the specific ids a revision change touches, not for re-querying the f
 Pair with LESSON-0727 (dev-default + proactive alert) as the two complementary mitigations — one on the
 dev-traffic side, one on the production-serving side — for the same underlying constraint (a shared,
 metered resource drained by more than just "real" production traffic).
+
+**Policy hook (DR-166 T3):** profile egress first (which route drives the Neon transfer); cache only the hot public reads; keep per-user/private data uncached; record the change in the project's decision log. In Next.js the shared cache is the framework data cache (`unstable_cache`/`'use cache'` with `cacheTag`) revalidated by tag when the data revision changes.

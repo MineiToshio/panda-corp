@@ -1,5 +1,9 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-26 — Free-quota CI template, advisory upgrade check and owner-gated T1 deploys (DR-166)
+
+Plugin **11.1.0** / overlay **9.10.0** carry the owner-approved [DR-166](../../factory/decisions/registry.yaml) free-quota policy. Stack A now ships a seed-only `.github/workflows/ci.yml`: fast static checks (`verify.sh --light` + gitleaks) on push to `main` and on PRs, the full gate on `workflow_dispatch`, a weekly audit, concurrency and timeouts. Architecture step 8 seeds it. Upgrade seeds it only when it is missing. It never overwrites a project-owned workflow and reports U1–U5 deviations through the new `scripts/check-ci-quota.mjs`. This follows the never-diff/seed-only model of `e2e/routes.ts`. `block-dangerous.sh` treats `pnpm deploy:prod` and `gh workflow run deploy-production…` as the production gate (DR-004). The agent re-runs them only with `PANDACORP_OWNER_RELEASE_OK=1`, and `--dry-run` stays allowed. The Vercel CLI justification in the enforcement policy and the Codex rules now names both GitHub deploy paths. Architecture, release, review-launch, upgrade, the devops agent, environment delivery and the Stack A/B/C guides now default development to the local database and describe the T1 variant. `scripts/actions-usage-alert.mjs` backs the factory's account-wide Actions alert. Tests: `test-check-ci-quota.mjs`, `test-actions-usage-alert.mjs`, new rows in `test-block-dangerous.sh`.
+
 ## 2026-11-22 — Make implement a goal-based skill
 
 Owner decision. [Implement](../skills/implement/SKILL.md) states the goal and non-negotiable

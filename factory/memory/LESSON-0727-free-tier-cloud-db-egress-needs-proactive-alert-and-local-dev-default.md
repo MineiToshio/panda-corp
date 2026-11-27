@@ -9,11 +9,11 @@ source: "funko-tracker commits 606b9b4e/bb7ac20e (2026-11-23), owner decision: N
 provenance: owner-stated
 created: 2026-11-25
 status: active
-promotion: none
+promotion: approved
 confidence: high
 times_applied: 0
 applied_in: []
-links: [DR-140, LESSON-0699, LESSON-0697, LESSON-0696]
+links: [DR-140, DR-166, LESSON-0699, LESSON-0697, LESSON-0696, LESSON-0728]
 ---
 
 **Situation:** a project's managed database (Neon Free) has a monthly egress allowance shared between

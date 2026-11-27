@@ -1,0 +1,40 @@
+name: Actions usage alert
+
+# DR-166 U7 (factory/standards/infra.md INFRA-14): ONE account-wide alert for the 2,000 GitHub
+# Actions minutes shared by every private repository of the owner's account. It lives here because
+# this repository is public, so its own runs cost no included minutes. Daily: it keeps one
+# `actions-quota` issue open/updated at >= 60 % (WARN) and >= 85 % (CRIT) and closes it below 60 %.
+# Needs the owner-created secret GH_BILLING_TOKEN; without it the job prints a notice and succeeds.
+
+on:
+  schedule:
+    - cron: "41 7 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: actions-usage-alert
+  cancel-in-progress: false
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: plugin/scripts/actions-usage-alert.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Check account Actions minutes
+        env:
+          GH_BILLING_TOKEN: ${{ secrets.GH_BILLING_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          BILLING_USER: MineiToshio
+          INCLUDED_MINUTES: "2000"
+        run: node plugin/scripts/actions-usage-alert.mjs
